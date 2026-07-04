@@ -18,22 +18,24 @@ When active, the skill makes Claude:
 
 ## Installation
 
-**Claude Code, global** — available in every project:
+**npx skills** — installs from the [claude-skills](https://github.com/seevali/claude-skills) repo, works for Claude Code and other supported agents:
 
 ```bash
-cp -r mission-command ~/.claude/skills/mission-command
+npx skills add seevali/claude-skills --skill mission-command
 ```
 
-**Claude Code, project-level:**
+**Claude Code plugin** — this repo is a plugin marketplace; add it once, then install:
 
-```bash
-cp -r mission-command .claude/skills/mission-command
+```
+/plugin marketplace add seevali/claude-skills
+/plugin install mission-command@claude-skills
 ```
 
-**Claude Code plugin:**
+**Claude Code, manual copy** — global (every project) or project-level:
 
 ```bash
-/plugin add <this-repo>
+cp -r mission-command ~/.claude/skills/mission-command   # global
+cp -r mission-command .claude/skills/mission-command     # project-level
 ```
 
 **Claude.ai** — zip the `mission-command` folder (folder at ZIP root) and upload it under Settings → Capabilities → Skills. Note: on claude.ai the *doctrine* loads, but the fleet mechanics (per-agent model pinning, headless worker loops) require Claude Code — the skill degrades to single-agent execution of the same moves.

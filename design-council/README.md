@@ -29,7 +29,24 @@ The skill works for:
 
 ## Installation
 
-### Claude Code (terminal)
+### npx skills
+
+Installs from the [claude-skills](https://github.com/seevali/claude-skills) repo; works for Claude Code and other supported agents:
+
+```bash
+npx skills add seevali/claude-skills --skill design-council
+```
+
+### Claude Code plugin
+
+This repo is a plugin marketplace; add it once, then install:
+
+```
+/plugin marketplace add seevali/claude-skills
+/plugin install design-council@claude-skills
+```
+
+### Claude Code (terminal, manual copy)
 
 **Global** — available in every project:
 
@@ -51,12 +68,6 @@ cp -r design-council .claude/skills/design-council
 2. ZIP the `design-council/` folder (the folder must be the root of the ZIP)
 3. Go to **Settings → Customize → Skills**
 4. Upload the ZIP
-
-### Claude Code Plugin
-
-```
-/plugin add /path/to/design-council
-```
 
 ## Usage
 
@@ -112,7 +123,8 @@ design-council/
 ├── SKILL.md                          # Core skill — five lenses, patterns, usage guide
 ├── references/
 │   └── applied-examples.md           # Nine worked examples from real projects
-├── LICENSE                           # Apache 2.0
+├── .claude-plugin/
+│   └── plugin.json                   # Claude Code plugin manifest
 └── README.md                         # This file
 ```
 
@@ -143,4 +155,4 @@ The `references/applied-examples.md` file contains nine worked examples showing 
 
 Copyright 2026 Seevali Rathnayake
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../LICENSE) for details.

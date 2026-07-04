@@ -1,0 +1,8 @@
+{
+  "name": "mission-command",
+  "description": "Runs a scarce flagship model as the conductor of a cheap-model fleet: vision-first autonomy, per-agent model/effort pinning, disk-portable protocols, and gated autonomy.",
+  "author": {
+    "name": "Seevali Rathnayake"
+  },
+  "license": "Apache-2.0"
+}

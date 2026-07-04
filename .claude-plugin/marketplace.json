@@ -1,0 +1,20 @@
+{
+  "name": "claude-skills",
+  "owner": {
+    "name": "Seevali Rathnayake"
+  },
+  "plugins": [
+    {
+      "name": "design-council",
+      "source": "./design-council",
+      "description": "Channels five master designers — Jony Ive, Dieter Rams, Zaha Hadid, Bjarke Ingels, and Don Norman — as a consultative panel for any design work.",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "mission-command",
+      "source": "./mission-command",
+      "description": "Runs a scarce flagship model as the conductor of a cheap-model fleet: vision-first autonomy, per-agent model/effort pinning, disk-portable protocols, and gated autonomy.",
+      "license": "Apache-2.0"
+    }
+  ]
+}
