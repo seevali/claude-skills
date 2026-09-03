@@ -15,6 +15,12 @@
       "source": "./mission-command",
       "description": "Runs a scarce flagship model as the conductor of a cheap-model fleet: vision-first autonomy, per-agent model/effort pinning, disk-portable protocols, and gated autonomy.",
       "license": "Apache-2.0"
+    },
+    {
+      "name": "ratification-docket",
+      "source": "./ratification-docket",
+      "description": "Turns Proposed decisions spread across dense documents into a plain-language ballot page the owner rules on without reading them, then applies the answers to the records, trackers and ledgers.",
+      "license": "Apache-2.0"
     }
   ]
 }

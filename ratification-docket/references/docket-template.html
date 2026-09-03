@@ -1,0 +1,375 @@
+<title>Ratification Docket</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F2F4F6; --surface: #FFFFFF; --surface-2: #E9EDF0; --line: #D3DAE0;
+    --ink: #1B2430; --muted: #5C6773;
+    --accent: #0F6E6B; --accent-ink: #FFFFFF; --accent-soft: #DCEFEE;
+    --must: #6B4C9A; --must-soft: #EAE3F4;
+    --rec: #2E7D4F; --rec-soft: #DDF0E4;
+    --alt: #A6690F; --alt-soft: #F8EBD2;
+    --focus: #0F6E6B;
+    --shadow: 0 1px 2px rgba(27,36,48,.06), 0 8px 24px -12px rgba(27,36,48,.18);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12171D; --surface: #1A2129; --surface-2: #222B35; --line: #313C48;
+      --ink: #E6EAEE; --muted: #98A3AE;
+      --accent: #3FB5B0; --accent-ink: #0B1A19; --accent-soft: #163D3C;
+      --must: #B79BE0; --must-soft: #2C2340;
+      --rec: #6CC48F; --rec-soft: #1B3627;
+      --alt: #E2B25A; --alt-soft: #3B2E14;
+      --focus: #3FB5B0;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12171D; --surface: #1A2129; --surface-2: #222B35; --line: #313C48;
+    --ink: #E6EAEE; --muted: #98A3AE;
+    --accent: #3FB5B0; --accent-ink: #0B1A19; --accent-soft: #163D3C;
+    --must: #B79BE0; --must-soft: #2C2340;
+    --rec: #6CC48F; --rec-soft: #1B3627;
+    --alt: #E2B25A; --alt-soft: #3B2E14;
+    --focus: #3FB5B0;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: "Literata", Georgia, "Times New Roman", serif; font-weight: 500; text-wrap: balance; margin: 0; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+  a { color: var(--accent); }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, textarea:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .shell { max-width: 1200px; margin: 0 auto; padding: 32px 24px 96px; display: grid; grid-template-columns: 264px minmax(0, 1fr); gap: 40px; align-items: start; }
+  @media (max-width: 900px) { .shell { grid-template-columns: 1fr; gap: 24px; padding: 20px 16px 80px; } }
+
+  /* rail */
+  .rail { position: sticky; top: 20px; display: flex; flex-direction: column; gap: 18px; }
+  @media (max-width: 900px) { .rail { position: static; } }
+  .rail-title { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .progress { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; box-shadow: var(--shadow); display: grid; gap: 12px; margin-top: 8px; }
+  .prog-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .prog-big { font-family: "Literata", Georgia, serif; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .prog-lab { color: var(--muted); font-size: 14px; }
+  .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; display: flex; }
+  .bar > i { display: block; height: 100%; }
+  .b-rec { background: var(--rec); } .b-alt { background: var(--alt); }
+  .legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .legend .l-rec::before { background: var(--rec); } .legend .l-alt::before { background: var(--alt); }
+  .save-state { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; min-height: 20px; }
+  .save-state .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+  .save-state.ok .dot { background: var(--rec); } .save-state.busy .dot { background: var(--alt); } .save-state.local .dot { background: var(--must); }
+  .must-list { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; display: grid; gap: 4px; margin-top: 8px; }
+  .must-list a { display: flex; gap: 10px; align-items: baseline; text-decoration: none; color: var(--ink); font-size: 14px; padding: 3px 0; }
+  .must-list a .n { color: var(--muted); width: 20px; flex: none; }
+  .must-list a .tick { margin-left: auto; color: var(--rec); font-size: 12px; visibility: hidden; }
+  .must-list a.done .tick { visibility: visible; }
+  .sections { display: grid; gap: 4px; margin-top: 8px; }
+  .sections a { text-decoration: none; color: var(--muted); font-size: 14px; padding: 4px 0; display: flex; gap: 8px; }
+  .sections a:hover { color: var(--ink); }
+  .sections a .n { width: 18px; flex: none; }
+  .actions { display: grid; gap: 8px; }
+  .btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 9px 14px; font-weight: 600; font-size: 14px; text-align: left; text-decoration: none; color: var(--ink); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn:hover { filter: brightness(.97); }
+
+  /* masthead */
+  .masthead { display: grid; gap: 14px; margin-bottom: 28px; }
+  .eyebrow { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .masthead h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.08; letter-spacing: -.01em; }
+  .lede { max-width: 66ch; color: var(--muted); font-size: 17px; margin: 0; }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .terms { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; font-size: 14px; display: grid; gap: 6px; max-width: 78ch; }
+  .terms b { font-weight: 600; }
+  .terms .k { color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+
+  /* parts and cards */
+  section.part { margin-top: 44px; }
+  section.part > header { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: baseline; padding-bottom: 10px; border-bottom: 2px solid var(--ink); margin-bottom: 18px; }
+  section.part > header .letter { font-family: "Literata", Georgia, serif; font-size: 30px; line-height: 1; }
+  section.part > header h2 { font-size: 22px; }
+  section.part > header p { grid-column: 2; margin: 0; color: var(--muted); max-width: 70ch; font-size: 15px; }
+  .entries { display: grid; gap: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 20px 22px 22px; display: grid; gap: 14px; scroll-margin-top: 20px; }
+  .card[data-state="rec"] { border-left: 4px solid var(--rec); }
+  .card[data-state="alt"] { border-left: 4px solid var(--alt); }
+  .card-head { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; align-items: start; }
+  .card-head .num { font-family: "Literata", Georgia, serif; font-size: 28px; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 2px; }
+  .card-head h3 { font-size: 21px; line-height: 1.25; }
+  .must { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--must); background: var(--must-soft); padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  @media (max-width: 640px) { .card-head { grid-template-columns: 34px 1fr; } .card-head .must { grid-column: 1 / -1; justify-self: start; } }
+  .about { margin: 0; max-width: 76ch; }
+  .about p { margin: 0 0 8px; } .about p:last-child { margin-bottom: 0; }
+  .recline { display: grid; grid-template-columns: 4px 1fr; gap: 12px; max-width: 76ch; }
+  .recline > i { display: block; border-radius: 2px; background: var(--rec); }
+  .recline .lab { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--rec); font-weight: 600; margin-bottom: 2px; }
+  .recline p { margin: 0; }
+
+  .opts { display: grid; gap: 8px; max-width: 76ch; }
+  .opts-lab { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .opt { display: grid; grid-template-columns: 20px 1fr; gap: 12px; align-items: start; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; cursor: pointer; background: var(--surface); }
+  .opt:hover { background: var(--surface-2); }
+  .opt input { margin: 4px 0 0; accent-color: var(--accent); }
+  .opt .t { font-weight: 600; }
+  .opt .t .tag { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--rec); margin-left: 8px; font-weight: 600; }
+  .opt .gc { font-size: 14px; color: var(--muted); margin-top: 2px; }
+  .opt .gc b { color: var(--ink); font-weight: 600; }
+  .opt.on { border-color: var(--accent); background: var(--accent-soft); }
+  .opt.on.is-rec { border-color: var(--rec); background: var(--rec-soft); }
+  .opt.on.is-alt { border-color: var(--alt); background: var(--alt-soft); }
+
+  .subs { display: grid; gap: 12px; max-width: 76ch; border-top: 1px dashed var(--line); padding-top: 12px; }
+  .subs-lab { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--must); font-weight: 600; }
+  .sub { display: grid; gap: 6px; }
+  .sub .q { font-weight: 600; }
+  .sub .why { font-size: 14px; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 14px; }
+  .chip:hover { background: var(--surface-2); }
+  .chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .chip.on.is-rec { border-color: var(--rec); background: var(--rec-soft); color: var(--rec); }
+  .chip .tag { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; margin-left: 6px; opacity: .8; }
+  .note { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); padding: 6px 10px; font: inherit; font-size: 14px; width: 100%; max-width: 60ch; }
+  .note::placeholder, .whybox::placeholder { color: var(--muted); opacity: .8; }
+
+  .ruling { border-top: 1px dashed var(--line); padding-top: 12px; display: grid; gap: 8px; max-width: 76ch; }
+  .whybox { width: 100%; min-height: 42px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); padding: 8px 12px; font: inherit; font-size: 15px; }
+  .dflt { margin: 0; font-size: 14px; color: var(--muted); }
+  .dflt b { color: var(--ink); font-weight: 600; }
+  details.trace { font-size: 13px; color: var(--muted); }
+  details.trace summary { cursor: pointer; list-style: none; }
+  details.trace summary::before { content: "▸ "; } details.trace[open] summary::before { content: "▾ "; }
+  .clear { background: transparent; border: 0; color: var(--muted); font-size: 13px; padding: 0; text-decoration: underline; width: max-content; }
+  .clear:hover { color: var(--ink); }
+
+  .export { margin-top: 48px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; display: grid; gap: 12px; }
+  .export h2 { font-size: 20px; }
+  .export p { margin: 0; color: var(--muted); max-width: 70ch; }
+  .export textarea { width: 100%; min-height: 200px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--ink); padding: 12px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; line-height: 1.5; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--ground); padding: 10px 16px; border-radius: 8px; font-size: 14px; box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .toast.show { opacity: 1; }
+</style>
+
+<div class="shell">
+  <aside class="rail" aria-label="Progress and navigation">
+    <div>
+      <div class="rail-title">Decisions made</div>
+      <div class="progress">
+        <div class="prog-row"><span class="prog-big" id="p-count">0</span><span class="prog-lab">of <span id="p-total">0</span></span></div>
+        <div class="bar" id="p-bar"><i class="b-rec" style="width:0"></i><i class="b-alt" style="width:0"></i></div>
+        <div class="legend"><span class="l-rec">Took the recommendation <b id="c-rec">0</b></span><span class="l-alt">Went another way <b id="c-alt">0</b></span></div>
+        <div class="save-state" id="save-state"><span class="dot"></span><span id="save-text">Connecting to the page store…</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="rail-title">Cannot be skipped · <span id="m-count">0</span>/<span id="m-total">0</span></div>
+      <div class="must-list" id="must-list"></div>
+    </div>
+    <div>
+      <div class="rail-title">Parts</div>
+      <nav class="sections" id="sections"></nav>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="btn-copy">Copy answers as text</button>
+      <a class="btn" href="#export">See the answer block</a>
+    </div>
+  </aside>
+
+  <main>
+    <header class="masthead">
+      <div class="eyebrow">PROJECT · ratification · YYYY-MM-DD</div>
+      <h1>Ratification Docket</h1>
+      <p class="lede">N decisions, each written to be made from this page alone. Every card says what the decision is about, what each choice gets you and costs you, and what I recommend. Pick one, add a line of why if you want to. <b>Skip a card and its stated default applies.</b> The cards marked "cannot be skipped" are the ones where the sources contradict each other or the default is not a real option. Answers save to this page.</p>
+      <div class="terms">
+        <span class="k">Six terms, once</span>
+        <div><b>Term one</b>: its plain definition. <b>Term two</b>: its plain definition. (Define at most six project terms here; every other term is defined inline on the card that uses it.)</div>
+        <div><b>Ground truth today</b>: the one or two facts the rulings depend on (what has started, what exists, which dates have passed).</div>
+      </div>
+    </header>
+    <div id="parts"></div>
+    <section class="export" id="export">
+      <h2>The answer block</h2>
+      <p>Everything you have decided, as text, updated as you go. The session reads your answers from the page directly; copy this only if the page store is unavailable.</p>
+      <textarea id="export-text" readonly aria-label="Answers as text"></textarea>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // PARTS: the page's sections. Each lists decision ids in reading order.
+  const PARTS = [
+    { letter: 'A', title: 'The plan', blurb: 'One sentence on what this part decides.', items: ['1','2'] },
+  ];
+
+  // D: one entry per decision, keyed by the id used in PARTS.
+  //   must: true       — pinned in the rail as "cannot be skipped" (sources contradict, or the default is not a real option)
+  //   q                — the plain question (card title)
+  //   about: [html…]   — two or three sentences of context; define every term inline; no document ids in the body
+  //   opts: [{k, t, gets, costs, rec:true}] — the choices; exactly one may carry rec:true; gets/costs are plain consequences
+  //   rec              — the recommendation in one or two sentences, or "No recommendation; it is a commercial call."
+  //   subs: [{k, q, why, opts:[{k,t,rec}], note:true}] — sub-questions where the sources silently disagree; note:true adds a free-text box
+  //   dflt             — what happens if the card is skipped, in plain words
+  //   trace            — the document ids, section numbers and finding labels this card came from (collapsed on the page)
+  const D = {
+    '1': { must: true, q: 'Which plan runs next?',
+      about: ['Two sentences on what the two plans are, in plain words, with every project term defined where it appears.',
+        'One sentence on what both plans keep unchanged.'],
+      opts: [
+        { k: 'a', t: 'Plan A, with the calls below', rec: true, gets: 'What the owner gets.', costs: 'What it costs them.' },
+        { k: 'b', t: 'Plan B as written', gets: 'What the owner gets.', costs: 'What it costs them.' } ],
+      rec: 'Plan A. One sentence of why.',
+      subs: [ { k: 'sub1', q: 'A point on which the two sources silently disagree?', why: 'What each source says, in one line each.', opts: [ { k: 'x', t: 'Do it the first way', rec: true }, { k: 'y', t: 'Do it the second way' } ] } ],
+      dflt: 'Plan B stands; nothing ships.',
+      trace: 'Report P-1; record §2; tracker OPEN-5(c).' },
+    '2': { q: 'A yes-or-no decision?',
+      about: ['Two or three sentences of context.'],
+      opts: [ { k: 'yes', t: 'Yes', rec: true, gets: 'Consequence.', costs: 'Cost.' }, { k: 'no', t: 'No', gets: 'Consequence.', costs: 'Cost.' } ],
+      rec: 'Yes.',
+      dflt: 'No.', trace: 'Report P-6.' },
+  };
+
+  // ---------- state ----------
+  const STORAGE_KEY = 'ratification-docket-v1'; // change per docket so devices do not mix answers
+  let state = { d: {}, updatedAt: null };
+  let docRef = null, saveTimer = null, lastLocalWrite = null;
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+  function ent(id) { if (!state.d[id]) state.d[id] = {}; return state.d[id]; }
+  function recKey(d) { const o = d.opts.find(x => x.rec); return o ? o.k : null; }
+
+  // ---------- render ----------
+  function render() {
+    const root = document.getElementById('parts'), nav = document.getElementById('sections');
+    root.innerHTML = ''; nav.innerHTML = '';
+    PARTS.forEach(p => {
+      const sec = document.createElement('section'); sec.className = 'part'; sec.id = 'part-' + p.letter;
+      sec.innerHTML = `<header><span class="letter">${p.letter}</span><h2>${esc(p.title)}</h2><p>${esc(p.blurb)}</p></header><div class="entries"></div>`;
+      const list = sec.querySelector('.entries');
+      p.items.forEach(id => list.appendChild(card(id)));
+      root.appendChild(sec);
+      const a = document.createElement('a'); a.href = '#part-' + p.letter; a.innerHTML = `<span class="n">${p.letter}</span><span>${esc(p.title)}</span>`; nav.appendChild(a);
+    });
+    document.getElementById('p-total').textContent = Object.keys(D).length;
+    const musts = Object.keys(D).filter(id => D[id].must);
+    document.getElementById('m-total').textContent = musts.length;
+    const ml = document.getElementById('must-list'); ml.innerHTML = '';
+    musts.forEach(id => { const a = document.createElement('a'); a.href = '#d-' + id; a.dataset.id = id; a.innerHTML = `<span class="n mono">${id}</span><span>${esc(short(D[id].q))}</span><span class="tick">done</span>`; ml.appendChild(a); });
+  }
+  function short(t) { return t.length > 44 ? t.slice(0, 42).replace(/\s+\S*$/, '') + '…' : t; }
+
+  function card(id) {
+    const d = D[id]; const rk = recKey(d);
+    const art = document.createElement('article'); art.className = 'card'; art.id = 'd-' + id; art.dataset.id = id;
+    const opts = d.opts.map(o => `<label class="opt ${o.k === rk ? 'is-rec' : 'is-alt'}" data-k="${esc(o.k)}"><input type="radio" name="d${id}" value="${esc(o.k)}"><div><div class="t">${esc(o.t)}${o.rec ? '<span class="tag">recommended</span>' : ''}</div>${(o.gets || o.costs) ? `<div class="gc">${o.gets ? '<b>Gets:</b> ' + esc(o.gets) + ' ' : ''}${o.costs ? '<b>Costs:</b> ' + esc(o.costs) : ''}</div>` : ''}</div></label>`).join('');
+    const subs = d.subs && d.subs.length ? `<div class="subs"><span class="subs-lab">Settle with it</span>${d.subs.map(s => `<div class="sub" data-sub="${esc(s.k)}"><div class="q">${esc(s.q)}</div>${s.why ? `<div class="why">${esc(s.why)}</div>` : ''}${s.opts.length ? `<div class="chips">${s.opts.map(o => `<button type="button" class="chip ${o.rec ? 'is-rec' : ''}" data-k="${esc(o.k)}">${esc(o.t)}${o.rec ? '<span class="tag">rec</span>' : ''}</button>`).join('')}</div>` : ''}${s.note ? `<input class="note" data-note="${esc(s.k)}" placeholder="Write it here">` : ''}</div>`).join('')}</div>` : '';
+    art.innerHTML = `
+      <header class="card-head"><span class="num">${id}</span><h3>${esc(d.q)}</h3>${d.must ? '<span class="must">Cannot be skipped</span>' : ''}</header>
+      <div class="about">${d.about.map(p => `<p>${p}</p>`).join('')}</div>
+      <div class="recline"><i></i><div><div class="lab">My recommendation</div><p>${esc(d.rec)}</p></div></div>
+      <div class="opts"><span class="opts-lab">Your call</span>${opts}</div>
+      ${subs}
+      <div class="ruling">
+        <textarea class="whybox" rows="1" placeholder="One line of why (optional)" aria-label="Why, decision ${id}"></textarea>
+        <p class="dflt"><b>If you skip this:</b> ${esc(d.dflt)}</p>
+        <details class="trace"><summary>Where this comes from</summary>${esc(d.trace)}</details>
+        <button type="button" class="clear">Clear this decision</button>
+      </div>`;
+    art.querySelectorAll('.opt input').forEach(inp => inp.addEventListener('change', () => { ent(id).opt = inp.value; paint(id); summary(); save(); }));
+    art.querySelectorAll('.sub .chip').forEach(b => b.addEventListener('click', () => { const s = b.closest('.sub').dataset.sub; const e = ent(id); e.subs = e.subs || {}; e.subs[s] = e.subs[s] === b.dataset.k ? '' : b.dataset.k; paint(id); summary(); save(); }));
+    art.querySelectorAll('input[data-note]').forEach(inp => inp.addEventListener('input', () => { const e = ent(id); e.notes = e.notes || {}; e.notes[inp.dataset.note] = inp.value; summary(); save(); }));
+    const why = art.querySelector('.whybox');
+    why.addEventListener('input', () => { autosize(why); ent(id).why = why.value; summary(); save(); });
+    art.querySelector('.clear').addEventListener('click', () => { delete state.d[id]; paint(id); summary(); save(); });
+    return art;
+  }
+  function autosize(t) { t.style.height = 'auto'; t.style.height = Math.max(42, t.scrollHeight) + 'px'; }
+
+  function paint(id) {
+    const d = D[id], e = state.d[id] || {}, rk = recKey(d);
+    const art = document.getElementById('d-' + id);
+    art.dataset.state = e.opt ? (e.opt === rk ? 'rec' : 'alt') : '';
+    art.querySelectorAll('.opt').forEach(l => { const on = l.dataset.k === e.opt; l.classList.toggle('on', on); l.querySelector('input').checked = on; });
+    art.querySelectorAll('.sub').forEach(s => { const v = e.subs && e.subs[s.dataset.sub]; s.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', b.dataset.k === v)); });
+    art.querySelectorAll('input[data-note]').forEach(inp => { const v = (e.notes && e.notes[inp.dataset.note]) || ''; if (inp.value !== v) inp.value = v; });
+    const why = art.querySelector('.whybox'); if (why.value !== (e.why || '')) why.value = e.why || ''; autosize(why);
+  }
+  function paintAll() { Object.keys(D).forEach(paint); summary(); }
+
+  function summary() {
+    const ids = Object.keys(D); let rec = 0, alt = 0;
+    ids.forEach(id => { const e = state.d[id]; if (e && e.opt) { if (e.opt === recKey(D[id])) rec++; else alt++; } });
+    document.getElementById('p-count').textContent = rec + alt;
+    document.getElementById('c-rec').textContent = rec; document.getElementById('c-alt').textContent = alt;
+    const bar = document.getElementById('p-bar');
+    bar.querySelector('.b-rec').style.width = (rec / ids.length * 100) + '%';
+    bar.querySelector('.b-alt').style.width = (alt / ids.length * 100) + '%';
+    let m = 0; document.querySelectorAll('#must-list a').forEach(a => { const ok = !!(state.d[a.dataset.id] && state.d[a.dataset.id].opt); a.classList.toggle('done', ok); if (ok) m++; });
+    document.getElementById('m-count').textContent = m;
+    document.getElementById('export-text').value = exportText();
+  }
+
+  function exportText() {
+    const lines = [];
+    PARTS.forEach(p => p.items.forEach(id => {
+      const d = D[id], e = state.d[id];
+      if (!e || !e.opt) { lines.push(`${id.padStart(2, ' ')}  (skipped → ${d.dflt})`); return; }
+      const o = d.opts.find(x => x.k === e.opt);
+      let l = `${id.padStart(2, ' ')}  ${o ? o.t : e.opt}${e.opt === recKey(d) ? ' [rec]' : ''}` + (e.why ? ` — ${e.why.trim()}` : '');
+      (d.subs || []).forEach(s => { const v = e.subs && e.subs[s.k]; const n = e.notes && e.notes[s.k]; if (v) { const so = s.opts.find(x => x.k === v); l += `\n      · ${s.q} → ${so ? so.t : v}`; } if (n) l += `\n      · ${s.q} → ${n.trim()}`; });
+      lines.push(l);
+    }));
+    return lines.join('\n');
+  }
+
+  // ---------- persistence ----------
+  function setSave(cls, text) { document.getElementById('save-state').className = 'save-state ' + cls; document.getElementById('save-text').textContent = text; }
+  function writeLocal() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {} }
+  function readLocal() { try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+  function save() {
+    writeLocal();
+    if (!docRef) { setSave('local', 'Saved on this device only'); return; }
+    setSave('busy', 'Saving…'); clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      state.updatedAt = new Date().toISOString(); lastLocalWrite = state.updatedAt; writeLocal();
+      try { await docRef.set({ d: state.d, updatedAt: state.updatedAt, version: 2 }); setSave('ok', 'Saved to the page · ' + new Date(state.updatedAt).toLocaleTimeString()); }
+      catch (e) { if (e && e.code === 'unavailable') { setTimeout(save, 800 + Math.random() * 800); return; } setSave('local', 'Could not save to the page (' + (e && e.code ? e.code : 'error') + '); kept on this device'); }
+    }, 600);
+  }
+  async function connect() {
+    const local = readLocal();
+    if (local && local.d) { state = local; paintAll(); }
+    let ns = null;
+    try { ns = (window.claude && typeof window.claude.use === 'function') ? await window.claude.use('db') : null; } catch (e) { ns = null; }
+    if (!ns) { setSave('local', 'Page store unavailable; answers stay on this device'); return; }
+    docRef = ns.doc('ballot/decisions');
+    let first = true;
+    docRef.onSnapshot(snap => {
+      if (snap.exists) {
+        const r = snap.data(); const newer = !state.updatedAt || (r.updatedAt && r.updatedAt > state.updatedAt);
+        if (first ? (newer || !local) : (!snap.metadata.hasPendingWrites && r.updatedAt !== lastLocalWrite && newer)) { state = { d: r.d || {}, updatedAt: r.updatedAt || null }; writeLocal(); paintAll(); }
+        else if (first && local && local.updatedAt && !newer) { save(); }
+      } else if (first && local && Object.keys(local.d || {}).length) { save(); }
+      if (first) { first = false; if (!snap.metadata.hasPendingWrites) setSave('ok', snap.exists ? 'Saved to the page' : 'Connected to the page store'); }
+    }, err => { setSave('local', 'Page store stopped (' + err.code + '); answers stay on this device'); docRef = null; });
+  }
+
+  function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+  document.getElementById('btn-copy').addEventListener('click', async () => {
+    const txt = exportText();
+    try { await navigator.clipboard.writeText(txt); toast('Copied'); } catch (e) { const ta = document.getElementById('export-text'); ta.focus(); ta.select(); toast('Select-all in the answer block to copy'); location.hash = '#export'; }
+  });
+
+  render(); paintAll(); connect();
+})();
+</script>

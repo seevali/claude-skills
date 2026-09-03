@@ -1,0 +1,8 @@
+{
+  "name": "ratification-docket",
+  "description": "Turns Proposed decisions spread across dense documents into a plain-language ballot page the owner rules on without reading them, then applies the answers to the records, trackers and ledgers.",
+  "author": {
+    "name": "Seevali Rathnayake"
+  },
+  "license": "Apache-2.0"
+}
