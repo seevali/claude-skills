@@ -7,7 +7,7 @@ A collection of custom [Claude Skills](https://docs.anthropic.com/en/docs/claude
 | Skill | Description |
 |-------|-------------|
 | [design-council](design-council/) | Channels five master designers — Jony Ive, Dieter Rams, Zaha Hadid, Bjarke Ingels, and Don Norman — as a consultative panel for any design work. |
-| [mission-command](mission-command/) | Runs a scarce flagship model as the conductor of a cheap-model fleet: vision-first autonomy, per-agent model/effort pinning, disk-portable protocols, and gated autonomy — weeks of verified work in days. |
+| [mission-command](mission-command/) | Runs a scarce flagship model as the conductor of a cheap-model fleet: vision-first autonomy, per-agent model/effort pinning, disk-portable protocols, and gated autonomy, with a cost ledger against the shared pool — weeks of verified work in days. |
 | [ratification-docket](ratification-docket/) | Turns Proposed decisions spread across dense documents into a plain-language ballot page the owner rules on without reading them, then applies the answers to the records, trackers and ledgers. |
 
 ## Installation

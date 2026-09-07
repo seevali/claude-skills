@@ -11,7 +11,8 @@ The name comes from the military doctrine of mission command (*Auftragstaktik*):
 When active, the skill makes Claude:
 
 - **Internalize your vision first** — cheap parallel readers over your docs and code, synthesized and played back, before anything is executed
-- **Design to your budget** — resumable plans, disk-based trackers, and a per-phase model/effort matrix written into the workspace
+- **Design to your budget** — resumable plans, disk-based trackers, a per-phase model/effort matrix written into the workspace, and a cost ledger: every fleet run's measured cost against the shared pool, with no launch that would spend more than a third of what remains
+- **Spend the fleet where it counts** — shared read-only provisioning (worktrees, built artifacts, package caches) so agents never rebuild the world; verification scope that narrows to the last pass's diff once the whole corpus has been read twice; rulings that state facts and deletions rather than prose
 - **Pin the fleet** — fast tier reads, mid tier implements and verifies, flagship designs and adjudicates; sub-agents never choose their own tier, and zero flagship tokens go to grunt work
 - **Make the operation disk-portable** — protocol READMEs, trackers, and decision ledgers that let any fresh session (or an unattended headless fleet) resume from files alone
 - **Keep autonomy gated** — adversarial verification as a separate role, rehearsals before irreversible operations, draft PRs with you as the merge-gate, and a strict blocked-over-guessed rule for unattended workers
