@@ -11,9 +11,11 @@ The name comes from the military doctrine of mission command (*Auftragstaktik*):
 When active, the skill makes Claude:
 
 - **Internalize your vision first** — cheap parallel readers over your docs and code, synthesized and played back, before anything is executed
-- **Design to your budget** — resumable plans, disk-based trackers, a per-phase model/effort matrix written into the workspace, and a cost ledger: every fleet run's measured cost against the shared pool, with no launch that would spend more than a third of what remains
-- **Spend the fleet where it counts** — shared read-only provisioning (worktrees, built artifacts, package caches) so agents never rebuild the world; verification scope that narrows to the last pass's diff once the whole corpus has been read twice; rulings that state facts and deletions rather than prose
-- **Pin the fleet** — fast tier reads, mid tier implements and verifies, flagship designs and adjudicates; sub-agents never choose their own tier, and zero flagship tokens go to grunt work
+- **Design to your budget** — the cheap fleet shape is the default, not something you have to ask for; resumable plans, disk-based trackers, a per-phase model/effort matrix, a pre-launch shape estimate (agents × turns × context), and a cost ledger: every fleet run's measured cost against the shared pool, with no launch that would spend more than a third of what remains
+- **Cap the workers** — a worker lives at most ~40 turns / ~120K context (enforced by the harness, resumed by a fresh worker from a written note) and runs in a stripped environment: no CLAUDE.md hierarchy, no skill or plugin listings, no MCP servers, a tool allowlist, model and effort pinned — because cost grows with the square of an agent's lifetime and fixed per-turn overhead is a third of a fleet's bill
+- **Spend the fleet where it counts** — deterministic gates (build, tests) before any refuter; one refute round by default, scoped to the diff; shared read-only provisioning (worktrees, built artifacts, package caches) so agents never rebuild the world; rulings that state facts and deletions rather than prose
+- **Pin the fleet** — fast tier reads, mid tier implements and verifies, flagship designs and adjudicates; sub-agents never choose or inherit their tier, and zero flagship tokens go to grunt work
+- **Discipline the conductor** — no shell work in the main loop, medium effort for orchestration, small context (one mission per session, low auto-compaction window, no extended-context variant), non-blocking delegation, surgical edits, no scope extras
 - **Make the operation disk-portable** — protocol READMEs, trackers, and decision ledgers that let any fresh session (or an unattended headless fleet) resume from files alone
 - **Keep autonomy gated** — adversarial verification as a separate role, rehearsals before irreversible operations, draft PRs with you as the merge-gate, and a strict blocked-over-guessed rule for unattended workers
 
@@ -55,7 +57,7 @@ Or invoke it directly: `/mission-command`.
 
 ```
 mission-command/
-├── SKILL.md      # The protocol: five phases + non-negotiables
+├── SKILL.md      # The protocol: cost model + six phases + non-negotiables
 └── README.md     # This file
 ```
 
