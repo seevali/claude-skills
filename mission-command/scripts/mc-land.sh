@@ -8,6 +8,7 @@ set -uo pipefail
 die() { printf 'mc-land: %s\n' "$*" >&2; exit 2; }
 # mc_norm_path (one path normaliser, cygpath-aware) comes from the hook library.
 . "$(dirname "$0")/mc-hook-lib.sh" || { printf '%s: cannot source mc-hook-lib.sh\n' "${0##*/}" >&2; exit 2; }
+command -v jq >/dev/null 2>&1 || die "jq is required and missing: install it (Windows: winget install jqlang.jq; Debian/Ubuntu: apt install jq; macOS: brew install jq)"
 usage="usage: mc-land.sh <dispatch.json>
   Commits the worktree's leftovers as wip(<unit>) (limited to the dispatch's
   \"scope\" paths when set; dirt outside the scope is left alone), runs \"gate\"

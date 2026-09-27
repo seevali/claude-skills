@@ -9,6 +9,7 @@ set -uo pipefail
 die() { printf 'mc-run: %s\n' "$*" >&2; exit 2; }
 # mc_norm_path (one path normaliser, cygpath-aware) comes from the hook library.
 . "$(dirname "$0")/mc-hook-lib.sh" || { printf '%s: cannot source mc-hook-lib.sh\n' "${0##*/}" >&2; exit 2; }
+command -v jq >/dev/null 2>&1 || die "jq is required and missing: install it (Windows: winget install jqlang.jq; Debian/Ubuntu: apt install jq; macOS: brew install jq)"
 dry=0; args=()
 for a in "$@"; do
   case "$a" in --dry-run) dry=1 ;; -h|--help) sed -n '2,7p' "$0"; exit 0 ;; *) args+=("$a") ;; esac
