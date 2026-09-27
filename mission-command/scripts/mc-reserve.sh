@@ -15,10 +15,12 @@ CAT_HD_RE='^[$][(]cat[[:space:]]+<<'
 # The two allowed stderr forms, `2>&1` and `2>/dev/null`, read from the `>`.
 STDERR_RE='^>(&1|/dev/null)([[:space:];|&]|$)'
 # take_heredoc S POS: at S[POS] is `<<`. Accepts only a quoted tag
-# (<<'TAG' or <<"TAG") that is the last token of its line; skips the body
-# through the line whose trimmed text is TAG (trimming accepts a superset of
-# bash's terminators, so it can only end the body early, never late). Sets
-# HD_END to the index after the TAG line (or the end of S). Returns 1 otherwise.
+# (<<'TAG' or <<"TAG") that is the last token of its line; the body ends at the
+# first line that, after leading blanks, starts with TAG. Bash ends a
+# `$(cat <<'TAG'` body at `TAG)`, so a body may end on a line that goes on after
+# the tag; ending wherever the line starts with TAG is never later than bash,
+# and the rest of that line is scanned as command text. Sets HD_END to the index
+# just after TAG on that line (or the end of S). Returns 1 otherwise.
 take_heredoc() {
   local s="$1" pos="$2" n=${#1} j line t tag
   local re="^<<-?[ 	]*('([A-Za-z_][A-Za-z0-9_]*)'|\"([A-Za-z_][A-Za-z0-9_]*)\")[ 	]*"$'\n'
@@ -27,12 +29,31 @@ take_heredoc() {
   j=$(( pos + ${#BASH_REMATCH[0]} ))
   while (( j < n )); do
     line="${s:j}"; line="${line%%$'\n'*}"
+    t="${line#"${line%%[![:space:]]*}"}"
+    if [[ "$t" == "$tag"* ]]; then HD_END=$(( j + ${#line} - ${#t} + ${#tag} )); return 0; fi
     j=$(( j + ${#line} + 1 ))
-    t="${line#"${line%%[![:space:]]*}"}"; t="${t%"${t##*[![:space:]]}"}"
-    if [ "$t" = "$tag" ]; then HD_END=$j; return 0; fi
   done
   HD_END=$n
   return 0
+}
+
+# outside_len CMD: bytes of CMD outside quoted-tag heredoc bodies, counted line
+# by line (never per character), so a long -m message is refused before the
+# per-character scan in segments() and a long -F - body is not counted.
+MAX_CMD=2000
+outside_len() {
+  local LC_ALL=C s="$1" line t tag="" len=0
+  local re="<<-?[ 	]*('([A-Za-z_][A-Za-z0-9_]*)'|\"([A-Za-z_][A-Za-z0-9_]*)\")[ 	]*\$"
+  while IFS= read -r line; do
+    if [ -n "$tag" ]; then
+      t="${line#"${line%%[![:space:]]*}"}"
+      [[ "$t" == "$tag"* ]] || continue
+      line="${t#"$tag"}"; tag=""
+    fi
+    len=$(( len + ${#line} + 1 ))
+    [[ "$line" =~ $re ]] && tag="${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
+  done <<< "$s"
+  printf '%s' "$len"
 }
 
 # segments CMD: contract steps 1-2. Prints one segment per line: split on
@@ -59,7 +80,7 @@ segments() {
          && [[ "$seg" =~ $M_HD_RE ]]; then
         local p="${s:i}"; p="${p%%<<*}"
         take_heredoc "$s" $(( i + ${#p} )) || return 1
-        [[ "${s:HD_END}" =~ ^[[:blank:]]*\) ]] || return 1
+        [[ "${s:HD_END}" =~ ^[[:space:]]*\) ]] || return 1
         seg+="COMMIT_HEREDOC"; i=$(( HD_END + ${#BASH_REMATCH[0]} )); continue
       fi
       [ "$c" = '"' ] && q=""
@@ -111,6 +132,10 @@ bash_allowed() {
   local re='^[[:space:]]*git([[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+))?[[:space:]]+(add|commit|status|diff|log|rev-parse|show)([^A-Za-z0-9_]|$)'
   [ -n "$wt" ] || return 1
   rwt="$(resolve "$wt")"
+  if [ "$(outside_len "$1")" -gt "$MAX_CMD" ]; then
+    DENY_NOTE=" This command is longer than $MAX_CMD bytes. Put a long message in git -C $wt commit -F - <<'EOF'."
+    return 1
+  fi
   segs="$(segments "$1")" || return 1
   while IFS= read -r seg; do
     [[ "$seg" =~ ^[[:space:]]*$ ]] && continue

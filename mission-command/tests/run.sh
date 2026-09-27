@@ -167,6 +167,33 @@ check "reserve allows Write of the return file via .. path" empty "$(pre_file "$
 check "reserve allows Read of the return file" empty "$(pre_file "$TR" Read "$RF")"
 check "reserve allows Edit of the tracker (not yet on disk)" empty "$(pre_file "$TR" Edit "$(dirname "$DISP")/TRACKER.md")"
 check "reserve denies other tools" denied "$(hook PreToolUse mc-reserve.sh "$TR" Glob '{"pattern":"**"}')"
+# second refute (L-4b)
+check "reserve denies text after EOF) in a \$(cat body (L-4b finding 1)" denied "$(pre_bash "$TR" "git -C $WT commit --allow-empty -m \"\$(cat <<'EOF'
+body
+EOF)\"
+touch $T/pwned1
+EOF
+)\"")"
+check "reserve denies text after EOF ) in a \$(cat body (L-4b finding 1)" denied "$(pre_bash "$TR" "git -C $WT commit --allow-empty -m \"\$(cat <<'EOF'
+body
+EOF )\"
+touch $T/pwned1
+EOF
+)\"")"
+check "reserve allows the one-line EOF)\" end of a \$(cat body" empty "$(pre_bash "$TR" "git -C $WT commit -m \"\$(cat <<'EOF'
+body
+EOF)\"")"
+check "reserve denies text after the tag in a -F - body" denied "$(pre_bash "$TR" "git -C $WT commit -F - <<'EOF'
+body
+EOF; touch $T/pwned1")"
+LONG="$(head -c 2100 /dev/zero | tr '\0' a)"
+IN2K="$(jq -nc --arg tp "$TR" --arg c "git -C $WT commit -m \"$LONG\"" '{session_id:"long-m",transcript_path:$tp,cwd:"/",hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$c}}')"
+t0=$(date +%s%N); o="$(printf '%s' "$IN2K" | bash "$S/mc-reserve.sh")"; ms=$(( ($(date +%s%N) - t0) / 1000000 ))
+check "reserve denies a 2,100-byte -m message in under 100 ms (L-4b finding 2; ${ms} ms)" bash -c '[ "$2" -lt 100 ] && printf "%s" "$1" | jq -e ".hookSpecificOutput.permissionDecision == \"deny\"" >/dev/null' _ "$o" "$ms"
+check "reserve long-command reason ends with the -F - sentence (L-4b finding 2)" bash -c '[[ "$1" == *"$2" ]]' _ "$(printf '%s' "$o" | jq -r .hookSpecificOutput.permissionDecisionReason)" "Put a long message in git -C $WT commit -F - <<'EOF'."
+check "reserve allows a 2,100-byte -F - body (L-4b finding 2)" empty "$(pre_bash "$TR" "git -C $WT commit -F - <<'EOF'
+$LONG
+EOF")"
 
 # --- stop gate --------------------------------------------------------------------
 WT="$(mk_wt)"; DISP="$(mk_disp "$WT")"; RF="$(dirname "$DISP")/ret.md"; TR="$(mk_transcript 20)"
@@ -191,7 +218,7 @@ check "stop gate blocks again on a fresh stop, no counter (finding 16)" blocked 
 filled "$RF"; nrel="$(grep -c 'released' "$DISP.gauge")"
 check "stop gate re-check passes silently once landed (finding 16)" bash -c "[ -z '$(stop "$TR" '{"stop_hook_active":true}')' ] && [ \$(grep -c released '$DISP.gauge') -eq $nrel ]"
 two='# Return: W-1\n\n## Return\nDid the thing because of the reason.\nChanged foo.ts; test passed 12/12.\n'
-for ph in "TBD - later" "TODO: write this" "tbd" "[TBD]" "TODO:" "- tbd later"; do
+for ph in "TBD - later" "TODO: write this" "tbd" "[TBD]" "TODO:" "- tbd later" "* TODO" "**TODO** later" "1. TODO later" "\`TODO\` later" "> TODO later"; do
   printf "$two%s\n" "$ph" > "$RF"
   check "stop gate: '$ph' is a placeholder (finding 15)" blocked "$(stop "$TR")"
 done
@@ -289,6 +316,8 @@ check "mc-dispatch falls back to ~/.claude/agents, landing and scope" jq -e '.ca
 check "mc-dispatch --cap overrides" [ "$(jq -r .cap "$T/r9/W-7.dispatch.json")" = 12 ]
 check "mc-dispatch fails without a cap" bash -c "cd '$P' && HOME='$T/home' bash '$S/mc-dispatch.sh' --unit X --agent nosuch --worktree '$WT' --return '$T/x.md' --out '$T/x.json'; [ \$? -eq 2 ]"
 check "mc-dispatch keeps an existing return file" bash -c "filled() { :; }; echo keep > '$T/r9/W-6.md'; cd '$P' && HOME='$T/home' bash '$S/mc-dispatch.sh' --unit W-6 --agent fake --worktree '$WT' --return '$T/r9/W-6.md' --out '$T/r9/W-6.json' >/dev/null && [ \"\$(cat '$T/r9/W-6.md')\" = keep ]"
+check "mc-dispatch refuses whitespace in --out (L-4b finding 5)" bash -c "cd '$P' && HOME='$T/home' bash '$S/mc-dispatch.sh' --unit W-5 --agent fake --worktree '$WT' --return '$T/r9/W-5.md' --out '$T/r 9/W-5.json' 2>/dev/null; [ \$? -eq 2 ] && [ ! -e '$T/r 9/W-5.json' ]"
+check "mc-dispatch refuses whitespace in --return (L-4b finding 5)" bash -c "cd '$P' && HOME='$T/home' bash '$S/mc-dispatch.sh' --unit W-5 --agent fake --worktree '$WT' --return '$T/r9/W 5.md' --out '$T/r9/W-5.json' 2>/dev/null; [ \$? -eq 2 ] && [ ! -e '$T/r9/W-5.json' ]"
 
 # --- mc-run.sh (dry run only; never launches claude) ------------------------------
 echo "work it" > "$T/brief.md"; cp "$P/.claude/agents/fake.md" "$T/home/.claude/agents/fake.md"

@@ -9,10 +9,11 @@ set -u
 
 # '## Return' is filled: >= 3 content lines (non-blank, not a heading) before
 # the next '#'/'##' heading, none a placeholder. A placeholder is wholly <…>,
-# contains _fill_, or starts with TBD/TODO after optional brackets, dashes or
-# whitespace, in any case, as a whole word (TODO: is one, Todoist is not).
+# contains _fill_, or starts with TBD/TODO after optional list or quote markers
+# (brackets, dashes, asterisks, >, backticks, digits with a dot, whitespace),
+# in any case, as a whole word (TODO: is one, Todoist is not).
 HEAD12_RE='^#{1,2}[[:space:]]'
-PH_RE='^[][(){}[:space:]-]*(tbd|todo)([^a-z0-9_]|$)'
+PH_RE='^([][(){}[:space:]*>`-]|[0-9]+\.)*(tbd|todo)([^a-z0-9_]|$)'
 return_filled() {
   local f="$1" line in=0 n=0 t lc
   [ -f "$f" ] || return 1

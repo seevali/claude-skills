@@ -48,6 +48,8 @@ case "$cap$reserve" in *[!0-9]*) die "cap and reserve must be integers (cap=$cap
 
 abs() { realpath -m -- "$1"; }
 worktree="$(abs "$worktree")"; ret="$(abs "$ret")"; out="$(abs "$out")"
+# The MC_DISPATCH= token is read up to the first whitespace.
+case "$out$ret" in *[[:space:]]*) die "--out and --return must not contain whitespace ($out, $ret)" ;; esac
 [ -n "$tracker" ] && tracker="$(abs "$tracker")"
 
 mkdir -p "$(dirname "$out")"
