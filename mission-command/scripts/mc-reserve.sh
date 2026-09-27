@@ -47,18 +47,25 @@ split_segments() {
   printf '%s\n' "$seg"
 }
 
+resolve() { realpath -m -- "$1" 2>/dev/null || printf '%s' "$1"; }
+
 bash_allowed() {
-  local seg re='^[[:space:]]*git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+(add|commit|status|diff|log|rev-parse|show)([^A-Za-z0-9_]|$)'
-  local any=0
+  local seg wt="$2" re='^[[:space:]]*git([[:space:]]+-C[[:space:]]+([^[:space:]]+))?[[:space:]]+(add|commit|status|diff|log|rev-parse|show)([^A-Za-z0-9_]|$)'
+  local any=0 dir
   while IFS= read -r seg; do
     [[ "$seg" =~ ^[[:space:]]*$ ]] && continue
+    # Command substitution or backticks anywhere in a segment are denied
+    # outright, even inside an otherwise-allowed git invocation.
+    [[ "$seg" == *'$('* || "$seg" == *'`'* ]] && return 1
     [[ "$seg" =~ $re ]] || return 1
+    dir="${BASH_REMATCH[2]}"
+    if [ -n "$dir" ]; then
+      [ -n "$wt" ] && [ "$(resolve "$dir")" = "$(resolve "$wt")" ] || return 1
+    fi
     any=1
   done < <(split_segments "$(strip_heredocs "$1")")
   [ "$any" = 1 ]
 }
-
-resolve() { realpath -m -- "$1" 2>/dev/null || printf '%s' "$1"; }
 
 path_allowed() {
   local p="$1" f rp
@@ -83,7 +90,7 @@ main() {
   mode="$(mc_landing)"
   case "$tool" in
     Bash)
-      [ "$mode" = "commit" ] && bash_allowed "$(mc_in '.tool_input.command')" && return 0 ;;
+      [ "$mode" = "commit" ] && bash_allowed "$(mc_in '.tool_input.command')" "$(mc_field worktree)" && return 0 ;;
     Read|Write|Edit)
       path_allowed "$(mc_in '.tool_input.file_path')" && return 0 ;;
   esac

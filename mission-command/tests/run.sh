@@ -113,11 +113,13 @@ for c in "git add -A" "git commit -m 'wip'" "git status" "git diff --stat" "git 
   check "reserve allows: $c" empty "$(pre_bash "$TR" "$c")"
 done
 check "reserve allows compound git add -A && git commit" empty "$(pre_bash "$TR" "git -C $WT add -A && git -C $WT commit -q -m \"fix: a; b | c\"")"
-check "reserve allows git commit heredoc" empty "$(pre_bash "$TR" "git commit -m \"\$(cat <<'EOF'
+check "reserve allows git commit heredoc (-F -)" empty "$(pre_bash "$TR" "git commit -F - <<'EOF'
 subject; with | separators
 body && more
-EOF
-)\"")"
+EOF")"
+check "reserve denies git -C of a foreign directory" denied "$(pre_bash "$TR" "git -C $T add -A")"
+check "reserve denies command substitution \$(...)" denied "$(pre_bash "$TR" "git commit -m \"\$(rm -rf src)\"")"
+check "reserve denies backtick substitution" denied "$(pre_bash "$TR" "git commit -m \"\`rm -rf src\`\"")"
 check "reserve denies pnpm test" denied "$(pre_bash "$TR" "pnpm test")"
 check "reserve denial reason text" has "$(pre_bash "$TR" "pnpm test")" "[mc] Reserve: turn 37 of 40. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of $RF. Commit what is on disk, fill '## Return', then stop."
 check "reserve denies git add && pnpm test" denied "$(pre_bash "$TR" "git add -A && pnpm test")"
