@@ -51,12 +51,20 @@ resolve() { realpath -m -- "$1" 2>/dev/null || printf '%s' "$1"; }
 
 bash_allowed() {
   local seg wt="$2" re='^[[:space:]]*git([[:space:]]+-C[[:space:]]+([^[:space:]]+))?[[:space:]]+(add|commit|status|diff|log|rev-parse|show)([^A-Za-z0-9_]|$)'
-  local any=0 dir
+  # The one allowed command substitution: $(cat <<TAG ... TAG) as a git commit
+  # -m argument. Heredoc bodies are stripped before splitting, so what remains
+  # of that idiom is just its residual opener immediately followed by the
+  # closing paren/quote, e.g. `$(cat <<'EOF' )"`. Recognise that residual and
+  # blank it out before the general $( check.
+  local heredoc_re="\\\$\\(cat[[:space:]]+<<-?[[:space:]]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\\1[[:space:]]*\\)"
+  local any=0 dir stripped
   while IFS= read -r seg; do
     [[ "$seg" =~ ^[[:space:]]*$ ]] && continue
+    stripped="$(printf '%s' "$seg" | sed -E "s/${heredoc_re}/COMMIT_HEREDOC/g")"
     # Command substitution or backticks anywhere in a segment are denied
-    # outright, even inside an otherwise-allowed git invocation.
-    [[ "$seg" == *'$('* || "$seg" == *'`'* ]] && return 1
+    # outright, even inside an otherwise-allowed git invocation, except the
+    # commit-heredoc idiom just blanked out above.
+    [[ "$stripped" == *'$('* || "$seg" == *'`'* ]] && return 1
     [[ "$seg" =~ $re ]] || return 1
     dir="${BASH_REMATCH[2]}"
     if [ -n "$dir" ]; then
@@ -98,7 +106,7 @@ main() {
   if [ "$mode" = "return-only" ]; then
     reason="[mc] Reserve: turn $MC_T of $MC_C. Only landing actions are allowed: Read/Write/Edit of $rf. Fill '## Return', then stop."
   else
-    reason="[mc] Reserve: turn $MC_T of $MC_C. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of $rf. Commit what is on disk, fill '## Return', then stop."
+    reason="[mc] Reserve: turn $MC_T of $MC_C. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of $rf. Commit what is on disk, fill '## Return', then stop. Allowed forms: git add …, git commit -m \"…\", git commit -F - <<'EOF', git commit -m \"\$(cat <<'EOF' … EOF)\"."
   fi
   jq -nc --arg r "$reason" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$r}}' 2>/dev/null || true
 }

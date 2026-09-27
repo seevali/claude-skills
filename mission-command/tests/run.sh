@@ -120,8 +120,14 @@ EOF")"
 check "reserve denies git -C of a foreign directory" denied "$(pre_bash "$TR" "git -C $T add -A")"
 check "reserve denies command substitution \$(...)" denied "$(pre_bash "$TR" "git commit -m \"\$(rm -rf src)\"")"
 check "reserve denies backtick substitution" denied "$(pre_bash "$TR" "git commit -m \"\`rm -rf src\`\"")"
+check "reserve allows commit heredoc idiom \$(cat <<'EOF' ...)" empty "$(pre_bash "$TR" "git commit -m \"\$(cat <<'EOF'
+msg
+EOF
+)\"")"
+check "reserve denies \$(pnpm test) as commit message" denied "$(pre_bash "$TR" "git commit -m \"\$(pnpm test)\"")"
 check "reserve denies pnpm test" denied "$(pre_bash "$TR" "pnpm test")"
 check "reserve denial reason text" has "$(pre_bash "$TR" "pnpm test")" "[mc] Reserve: turn 37 of 40. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of $RF. Commit what is on disk, fill '## Return', then stop."
+check "reserve denial reason contains -F -" has "$(pre_bash "$TR" "pnpm test")" "-F -"
 check "reserve denies git add && pnpm test" denied "$(pre_bash "$TR" "git add -A && pnpm test")"
 check "reserve denies git status; rm" denied "$(pre_bash "$TR" "git status; rm -rf src")"
 check "reserve denies git push" denied "$(pre_bash "$TR" "git push")"
