@@ -290,7 +290,7 @@ printf '%s' "$IN12" | bash "$S/mc-reserve.sh" >/dev/null; printf '%s' "$IN12" | 
 check "broken dispatch: event: error logged once per worker key" [ "$(grep -c '^event: .* error ' "$D12.gauge")" -eq 1 ]
 BASH_BIN="$(command -v bash)"
 check "PATH=/nonexistent: all hooks silent on stderr (finding 12)" bash -c "for h in mc-gauge mc-reserve mc-stop-gate; do e=\$(printf '{}' | PATH=/nonexistent '$BASH_BIN' '$S/'\$h.sh 2>&1); [ -z \"\$e\" ] || exit 1; done"
-mkdir -p "$T/nojq"; for b in bash cat dirname mkdir date tr git grep realpath mv rm; do ln -sf "$(command -v $b)" "$T/nojq/$b"; done
+mkdir -p "$T/nojq"; for b in bash cat dirname mkdir date tr git grep realpath mv rm; do cp "$(command -v $b)" "$T/nojq/$b"; done
 check "missing jq: one line in errors.log (finding 12)" bash -c "o=\$(printf '{}' | PATH='$T/nojq' MC_HOOK_TMP='$T/nojqtmp' '$BASH_BIN' '$S/mc-reserve.sh' 2>&1); [ -z \"\$o\" ] && [ \$(wc -l < '$T/nojqtmp/errors.log') -eq 1 ] && grep -q 'mc-reserve.sh: jq missing' '$T/nojqtmp/errors.log'"
 
 check "conductor scripts without jq: exit 2, one line naming the install" bash -c 'for c in mc-dispatch mc-land mc-run; do o=$(PATH="$1" "$2" "$3/$c.sh" x y z 2>&1 >/dev/null); rc=$?; [ $rc -eq 2 ] && [ $(printf "%s\n" "$o" | wc -l) -eq 1 ] && printf "%s" "$o" | grep -qF "winget install jqlang.jq" && printf "%s" "$o" | grep -qF "apt install jq" || exit 1; done' _ "$T/nojq" "$BASH_BIN" "$S"
