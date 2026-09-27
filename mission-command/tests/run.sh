@@ -77,7 +77,7 @@ hook() {
   printf '%s' "$out"; [ "$rc" -eq 0 ] || printf 'HOOK-EXIT-%s' "$rc"
 }
 post() { hook PostToolUse mc-gauge.sh "$1" Bash '{"command":"ls"}'; }
-pre_bash() { hook PreToolUse mc-reserve.sh "$1" Bash "$(jq -nc --arg c "$2" '{command:$c}')"; }
+pre_bash() { hook PreToolUse mc-reserve.sh "$1" Bash "$(jq -nc --arg c "$2" '{command:$c}')" "${3:-{\}}"; }
 pre_file() { hook PreToolUse mc-reserve.sh "$1" "$2" "$(jq -nc --arg p "$3" '{file_path:$p}')"; }
 stop() { hook Stop mc-stop-gate.sh "$1" "" '{}' "${2:-{\"stop_hook_active\":false\}}"; }
 denied() { printf '%s' "$1" | jq -e '.hookSpecificOutput.permissionDecision == "deny" and .hookSpecificOutput.hookEventName == "PreToolUse"'; }
@@ -108,22 +108,22 @@ check "gauge finds in-session transcript via agent_id" has "$(ctx "$o")" "turn 8
 # --- reserve --------------------------------------------------------------------
 TR="$(mk_transcript 33)"
 check "reserve silent before S" empty "$(pre_bash "$TR" "pnpm test")"
-TR="$(mk_transcript 36)"
+TR="$(mk_transcript 36)"; INWT="$(jq -nc --arg c "$WT" '{cwd:$c}')"
 for c in "git add -A" "git commit -m 'wip'" "git status" "git diff --stat" "git -C $WT log --oneline -3" "git rev-parse HEAD" "git show HEAD"; do
-  check "reserve allows: $c" empty "$(pre_bash "$TR" "$c")"
+  check "reserve allows: $c" empty "$(pre_bash "$TR" "$c" "$INWT")"
 done
-check "reserve allows compound git add -A && git commit" empty "$(pre_bash "$TR" "git -C $WT add -A && git -C $WT commit -q -m \"fix: a; b | c\"")"
+check "reserve allows compound git add -A && git commit" empty "$(pre_bash "$TR" "git -C $WT add -A && git -C $WT commit -q -m \"fix: a; b | c\"" "$INWT")"
 check "reserve allows git commit heredoc (-F -)" empty "$(pre_bash "$TR" "git commit -F - <<'EOF'
 subject; with | separators
 body && more
-EOF")"
+EOF" "$INWT")"
 check "reserve denies git -C of a foreign directory" denied "$(pre_bash "$TR" "git -C $T add -A")"
 check "reserve denies command substitution \$(...)" denied "$(pre_bash "$TR" "git commit -m \"\$(rm -rf src)\"")"
 check "reserve denies backtick substitution" denied "$(pre_bash "$TR" "git commit -m \"\`rm -rf src\`\"")"
 check "reserve allows commit heredoc idiom \$(cat <<'EOF' ...)" empty "$(pre_bash "$TR" "git commit -m \"\$(cat <<'EOF'
 msg
 EOF
-)\"")"
+)\"" "$INWT")"
 check "reserve denies background & (finding 1)" denied "$(pre_bash "$TR" "git status & rm -rf src")"
 check "reserve denies process substitution <( (finding 4)" denied "$(pre_bash "$TR" "git diff <(touch pwned)")"
 check "reserve denies << inside a quoted message (finding 5)" denied "$(pre_bash "$TR" "git commit -m \"a <<EOF\"
@@ -141,7 +141,17 @@ x
 EOF")"
 check "reserve denies \$(pnpm test) as commit message" denied "$(pre_bash "$TR" "git commit -m \"\$(pnpm test)\"")"
 check "reserve denies pnpm test" denied "$(pre_bash "$TR" "pnpm test")"
-check "reserve denial reason text" has "$(pre_bash "$TR" "pnpm test")" "[mc] Reserve: turn 37 of 40. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of $RF. Commit what is on disk, fill '## Return', then stop."
+check "reserve denial reason text" has "$(pre_bash "$TR" "pnpm test" | jq -r .hookSpecificOutput.permissionDecisionReason)" "[mc] Reserve: turn 37 of 40. Only landing actions are allowed: git -C $WT add …, git -C $WT commit -m \"…\", git -C $WT commit -F - <<'EOF', git -C $WT commit -m \"\$(cat <<'EOF' … EOF)\", and Read/Write/Edit of $RF. Commit what is on disk, fill '## Return', then stop."
+check "reserve denies redirection > (finding 2)" denied "$(pre_bash "$TR" "git status > src/a.ts" "$INWT")"
+check "reserve denies redirection >> (finding 2)" denied "$(pre_bash "$TR" "git status >> /etc/x" "$INWT")"
+check "reserve denies --output (finding 3)" denied "$(pre_bash "$TR" "git log --output=src/a.ts -1" "$INWT")"
+check "reserve allows > inside a quoted message" empty "$(pre_bash "$TR" "git commit -m 'a > b'" "$INWT")"
+check "reserve allows -C \"<worktree>\" (finding 7)" empty "$(pre_bash "$TR" "git -C \"$WT\" status")"
+check "reserve allows -C '<worktree>' (finding 7)" empty "$(pre_bash "$TR" "git -C '$WT' status")"
+check "reserve allows -C ~/<worktree> (finding 8)" empty "$(HOME="$(dirname "$WT")" pre_bash "$TR" "git -C ~/$(basename "$WT") status")"
+o="$(pre_bash "$TR" "git add -A && git commit -m x")"
+check "reserve denies bare git outside the worktree (finding 14)" denied "$o"
+check "reserve bare-git reason names git -C <worktree>" has "$o" "use git -C $WT."
 check "reserve denial reason contains -F -" has "$(pre_bash "$TR" "pnpm test")" "-F -"
 check "reserve denies git add && pnpm test" denied "$(pre_bash "$TR" "git add -A && pnpm test")"
 check "reserve denies git status; rm" denied "$(pre_bash "$TR" "git status; rm -rf src")"
