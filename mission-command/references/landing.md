@@ -82,7 +82,7 @@ Only that first line is rewritten on each call. Any hook event worth recording (
 
 ### Hook scratch
 
-`${MC_HOOK_TMP:-/tmp/mc-hooks}/<key>.*` where `<key>` is `agent_id` when present else `session_id`. Used for the cached dispatch path and the stop-gate block counter. Safe to delete at any time.
+`${MC_HOOK_TMP:-/tmp/mc-hooks}/<key>.*` where `<key>` is `agent_id` when present else `session_id`. Used for the cached dispatch path and `errors.log`. Safe to delete at any time.
 
 ## The hooks
 
@@ -152,7 +152,7 @@ Output JSON goes to `<dispatch dir>/<unit>.run.json`; the script prints `subtype
 
 ## Agent definitions
 
-`agents/mc-worker-opus.md` and `agents/mc-worker-sonnet.md` carry the three hooks. Hook commands are absolute paths under `$HOME/.claude/skills/mission-command/scripts/`; a per-project install edits the path. Project-level frontmatter hooks run only after the workspace trust dialog is accepted once for that folder.
+`agents/mc-worker-opus.md` and `agents/mc-worker-sonnet.md` carry the three hooks. Every hook command is the **wrapper** `$HOME/.claude/skills/mission-command/scripts/mc-hook.sh <gauge|reserve|stop-gate>`, never a hook script directly; a per-project install edits the path. The wrapper is the only file a definition points at and is never edited in a fix pass: it honours `MC_HOOKS_OFF`, runs `bash -n` on the real script, runs it in a child bash with stdin passed through, prints its stdout only when it exited 0, logs anything else to `errors.log`, and always exits 0. Reason (2026-09-27): a fix worker's half-edited reserve script had a parse error; bash exits 2 on a parse error, the harness reads exit 2 from PreToolUse as a denial, and the worker was locked out of every tool including the one it needed to repair the file. With the wrapper, a broken hook script degrades to an unguarded worker plus a log line, never to a locked session. Project-level frontmatter hooks run only after the workspace trust dialog is accepted once for that folder. The harness reloads agent definitions when their files change, so an edited definition is live for the next dispatch in the same session; a session that edits the hook scripts themselves runs its workers under `MC_HOOKS_OFF=1` or from a copy, since the installed skill is a symlink to the working tree.
 
 ## Tests
 
