@@ -13,7 +13,9 @@ A worker is a Claude Code sub-agent with `maxTurns` set. The harness stops it at
 - Frontmatter `hooks:` in an agent definition fire for that agent both in-session (Agent tool) and headless (`claude -p --agent`). `PostToolUse` `additionalContext` is visible to the model. A frontmatter `Stop` hook fires as `Stop` headless and as `SubagentStop` in-session.
 - Hook input carries `session_id`, `transcript_path`, `cwd`, `agent_type`, `hook_event_name`, `tool_name`, `tool_input` and, only in-session, `agent_id`. No turn count, no token count.
 - Transcript location. Headless: `transcript_path` is the worker's own transcript. In-session: the worker's transcript is `${transcript_path%.jsonl}/subagents/agent-${agent_id}.jsonl`.
-- Headless `--max-turns` overrides the definition's `maxTurns`; headless does not honor the definition's `effort` (a definition saying `low` ran at `high`), so the launcher passes `--effort`.
+- **The transcript lags the current turn by one message.** When PreToolUse, PostToolUse or Stop fires during turn N, the transcript holds the assistant lines of turns 1..N−1 only; the current turn's line is written after its tools finish. So the turn the model is in is `distinct assistant ids + 1`, in every hook. (Live probe 2026-09-27: the first tool result read "turn 0 of 10", and a nine-turn worker's last gauge reading was 7.) A turn with no tool call (text only) produces no gauge line, so consecutive gauge readings may skip a number.
+- Headless `--max-turns` overrides the definition's `maxTurns`; headless does not honor the definition's `effort` (a definition saying `low` ran at `high`), so the launcher passes `--effort`. Headless does honor the definition's `model`.
+- A headless run starts in the worktree, so it finds only **global** agent definitions (`~/.claude/agents/<name>.md`) and plugin-scoped ones; a definition in a project's `.claude/agents/` is invisible to it. Worker definitions used headless live in `~/.claude/agents/`.
 - In-session, a worker's `cwd` is the conductor's cwd, not its worktree. The dispatch file therefore names the worktree explicitly, and the hooks find the dispatch file through the prompt, not through `cwd`.
 
 ## Files
@@ -76,7 +78,7 @@ The stop gate considers `## Return` filled when at least three non-blank lines f
 turns=17 cap=40 reserve_at=35 updated=2026-09-27T10:11:12Z
 ```
 
-Any hook event worth recording (a stop-gate block, a release, an internal error) is appended below that line, prefixed `event:`. The conductor and `mc-land.sh` read this file for the true turn count; they never trust the worker's own report of it.
+Only that first line is rewritten on each call. Any hook event worth recording (a stop-gate block, a release, an internal error) is appended below it, prefixed `event:`, and survives later rewrites. The conductor and `mc-land.sh` read this file for the true turn count; they never trust the worker's own report of it.
 
 ### Hook scratch
 
@@ -90,7 +92,7 @@ Shared library `scripts/mc-hook-lib.sh` (sourced) provides: `mc_read_input` (std
 
 ### 1. Gauge (`mc-gauge.sh`, PostToolUse, matcher `""`)
 
-Let `T` = turns used including the current one, `C` = cap, `R` = reserve, `S` = `C − R + 1` (first reserve turn). Writes the gauge file, then emits:
+Let `T` = the turn the model is in (`distinct assistant ids in the transcript + 1`, per the lag fact above), `C` = cap, `R` = reserve, `S` = `C − R + 1` (first reserve turn). Writes the gauge file, then emits (for a `return-only` unit the same bands, with "commit what is on disk" and the git clause dropped, since no git is allowed):
 
 - `T < S − 3`: `[mc] turn T of C. Reserve opens at turn S.`
 - `S − 3 ≤ T < S`: `[mc] turn T of C. Reserve opens at turn S: land now — commit what is on disk, then fill '## Return' in <return_file>.`
@@ -102,12 +104,12 @@ as `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"..
 
 When `T ≥ S`, allow only the landing set and deny everything else:
 
-- `Bash`: split the command on `&&`, `||`, `;`, `|` and newlines; every segment must match `^\s*git(\s+-C\s+\S+)?\s+(add|commit|status|diff|log|rev-parse|show)\b`. A `git commit` heredoc message is one segment.
+- `Bash`: strip heredoc bodies, then split the command on `&&`, `||`, `;`, `|` and newlines outside quotes; every segment must match `^\s*git(\s+-C\s+\S+)?\s+(add|commit|status|diff|log|rev-parse|show)\b`, and a `-C <dir>` must resolve to `worktree` (any other directory is denied). Command substitution (`$(...)`, backticks) inside a segment is denied outright. For a `return-only` unit every `Bash` call is denied.
 - `Read`, `Write`, `Edit`: `tool_input.file_path` resolves (realpath, or plain string compare when the file does not exist yet) to `return_file` or `tracker`.
 
-Denial output: `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"[mc] Reserve: turn T of C. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of <return_file>. Commit what is on disk, fill '## Return', then stop."}}`. Before `S`, or with no dispatch, the hook exits 0 silently.
+Denial output: `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"[mc] Reserve: turn T of C. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of <return_file>. Commit what is on disk, fill '## Return', then stop."}}` (return-only: without the git clauses). Before `S`, or with no dispatch, the hook exits 0 silently.
 
-The current turn's assistant line is expected to be in the transcript when PreToolUse fires; the implementer verifies this with one headless probe and, if it is not, adds one to `T` in this hook only.
+`T` here is the same `distinct assistant ids + 1` as in the gauge; the live probe of 2026-09-27 showed the lag applies to PreToolUse as well.
 
 ### 3. Stop gate (`mc-stop-gate.sh`, Stop, matcher none)
 
@@ -118,10 +120,10 @@ With a dispatch known, check two things: `git -C <worktree> status --porcelain` 
 ### `mc-dispatch.sh`
 
 ```
-mc-dispatch.sh --unit W-12 --agent mc-worker-opus --worktree DIR --return FILE [--tracker FILE] [--gate "CMD"] [--reserve 6] [--cap N] [--permission-mode MODE] --out FILE
+mc-dispatch.sh --unit W-12 --agent mc-worker-opus --worktree DIR --return FILE [--tracker FILE] [--gate "CMD"] [--reserve 6] [--cap N] [--landing commit|return-only] [--scope PATH ...] [--permission-mode MODE] --out FILE
 ```
 
-Reads `maxTurns:` from `<cwd>/.claude/agents/<agent>.md`, else `~/.claude/agents/<agent>.md`; `--cap` overrides. Writes the dispatch JSON to `--out`, creates the return file with the required skeleton if absent, and prints the prompt header line `MC_DISPATCH=<out>` so the conductor pastes it.
+Reads `maxTurns:` from `<cwd>/.claude/agents/<agent>.md`, else `~/.claude/agents/<agent>.md`; `--cap` overrides; exits 2 when no cap can be found. Writes the dispatch JSON to `--out`, creates the return file with the required skeleton if absent, and prints the prompt header line `MC_DISPATCH=<out>` so the conductor pastes it.
 
 ### `mc-land.sh <dispatch.json>`
 
@@ -129,7 +131,7 @@ The conductor's one-command recovery when a worker capped anyway. In the worktre
 
 ### `mc-run.sh <dispatch.json> <agent> <brief-file>`
 
-Headless launcher for unattended fleets. Reads `cap` and `permission_mode` from the dispatch and `model`/`effort` from the agent definition, then runs from the worktree:
+Headless launcher for unattended fleets. Reads `cap` and `permission_mode` from the dispatch and `model`/`effort` from the agent definition, which must exist at `~/.claude/agents/<agent>.md` (a headless run starts in the worktree and cannot see a project's `.claude/agents/`; the script exits 2 with that message when the definition is only there). `--dry-run` prints the command instead of running it. It then runs from the worktree:
 
 ```
 claude -p "MC_DISPATCH=<dispatch>
