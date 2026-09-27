@@ -10,10 +10,15 @@ MC_DISPATCH_FILE="${MC_DISPATCH_FILE:-}"
 # The one path normaliser: every path that is compared or joined goes through it.
 # Git Bash (cygpath present): C:\x\y and C:/x/y become /c/x/y first; then
 # realpath -m. Empty in, empty out; the input unchanged if realpath fails.
+# cygpath is looked up only for a path in Windows form (drive letter or a
+# backslash): a POSIX path needs no conversion, and a PATH scan that misses
+# costs ~100 ms per call under WSL, whose PATH carries the /mnt/c directories.
 mc_norm_path() {
   local p="${1:-}"
   [ -n "$p" ] || return 0
-  if command -v cygpath >/dev/null 2>&1; then p="$(cygpath -u "$p" 2>/dev/null || printf '%s' "$p")"; fi
+  case "$p" in [A-Za-z]:*|*\\*)
+    if command -v cygpath >/dev/null 2>&1; then p="$(cygpath -u "$p" 2>/dev/null || printf '%s' "$p")"; fi ;;
+  esac
   realpath -m -- "$p" 2>/dev/null || printf '%s' "$p"
 }
 
@@ -64,7 +69,7 @@ mc_key() {
 # <transcript without .jsonl>/subagents/agent-<agent_id>.jsonl.
 mc_transcript() {
   local tp aid
-  tp="$(mc_norm_path "$(mc_in '.transcript_path')")"
+  tp="$(mc_in '.transcript_path')"
   [ -n "$tp" ] || return 0
   aid="$(mc_in '.agent_id')"
   if [ -n "$aid" ]; then
