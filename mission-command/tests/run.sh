@@ -212,6 +212,17 @@ check "MC_HOOKS_OFF=1 makes hooks inert" bash -c "export MC_HOOKS_OFF=1; printf 
 check "garbage stdin: exit 0, no output" bash -c "for h in mc-gauge mc-reserve mc-stop-gate; do o=\$(echo 'not json{' | bash '$S/'\$h.sh) || exit 1; [ -z \"\$o\" ] || exit 1; done"
 check "missing transcript: exit 0, no output" empty "$(post "$T/does-not-exist.jsonl")"
 check "missing dispatch file: inert" empty "$(pre_bash "$(mk_transcript 38 "$T/gone.jsonl" "$T/gone.dispatch.json")" "pnpm test")"
+D9="$(mktemp -d "$T/d9.XXXXXX")/W-1.dispatch.json"; echo '{not json' > "$D9"; TR9="$(mk_transcript 37 "$T/f9.jsonl" "$D9")"
+check "unreadable dispatch: stop gate inert with event: error (finding 9)" bash -c "[ -z '$(stop "$TR9")' ] && grep -q '^event: .* error stop-gate: dispatch missing or unreadable' '$D9.gauge'"
+WT="$(mk_wt)"; echo dirt > "$WT/d.txt"
+D10="$(mk_disp "$WT")"; jq 'del(.return_file)' "$D10" > "$D10.x" && mv "$D10.x" "$D10"; TR10="$(mk_transcript 37 "$T/f10.jsonl" "$D10")"
+check "dispatch without return_file: stop gate inert with event: error (finding 10)" bash -c "[ -z '$(stop "$TR10")' ] && grep -q '^event: .* error stop-gate: dispatch missing or unreadable: return_file' '$D10.gauge'"
+D11="$(mk_disp "$WT")"; jq 'del(.worktree)' "$D11" > "$D11.x" && mv "$D11.x" "$D11"; TR11="$(mk_transcript 37 "$T/f11.jsonl" "$D11")"
+check "dispatch without worktree: reserve inert on pnpm test and Write (finding 11)" bash -c "[ -z '$(pre_bash "$TR11" "pnpm test")' ] && [ -z '$(pre_file "$TR11" Write "$WT/any.txt")' ] && grep -q '^event: .* error reserve: dispatch missing or unreadable: worktree' '$D11.gauge'"
+BASH_BIN="$(command -v bash)"
+check "PATH=/nonexistent: all hooks silent on stderr (finding 12)" bash -c "for h in mc-gauge mc-reserve mc-stop-gate; do e=\$(printf '{}' | PATH=/nonexistent '$BASH_BIN' '$S/'\$h.sh 2>&1); [ -z \"\$e\" ] || exit 1; done"
+mkdir -p "$T/nojq"; for b in bash cat dirname mkdir date tr git grep realpath mv rm; do ln -sf "$(command -v $b)" "$T/nojq/$b"; done
+check "missing jq: one line in errors.log (finding 12)" bash -c "o=\$(printf '{}' | PATH='$T/nojq' MC_HOOK_TMP='$T/nojqtmp' '$BASH_BIN' '$S/mc-reserve.sh' 2>&1); [ -z \"\$o\" ] && [ \$(wc -l < '$T/nojqtmp/errors.log') -eq 1 ] && grep -q 'mc-reserve.sh: jq missing' '$T/nojqtmp/errors.log'"
 
 # --- mc-hook.sh wrapper ---------------------------------------------------------
 WT="$(mk_wt)"; DISP="$(mk_disp "$WT")"; TR="$(mk_transcript 10)"

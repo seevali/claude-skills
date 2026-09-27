@@ -7,6 +7,24 @@ MC_IN="${MC_IN:-}"
 MC_TMP="${MC_HOOK_TMP:-/tmp/mc-hooks}"
 MC_DISPATCH_FILE="${MC_DISPATCH_FILE:-}"
 
+# jq present, else one line to $MC_TMP/errors.log (no dispatch can be read
+# without jq, so the gauge file is out of reach) and return 1: the hook goes inert.
+mc_require_jq() {
+  command -v jq >/dev/null 2>&1 && return 0
+  { mkdir -p "$MC_TMP" && printf '%s %s: jq missing, hook inert\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${0##*/}" >> "$MC_TMP/errors.log"; } 2>/dev/null
+  return 1
+}
+
+# The dispatch fields every guarding hook needs. Returns 1 and logs
+# `event: error` when one is missing (an unreadable dispatch reads as empty).
+mc_require_fields() {
+  local f miss=""
+  for f in worktree return_file; do [ -n "$(mc_field "$f")" ] || miss="$miss $f"; done
+  [ -z "$miss" ] && return 0
+  mc_gauge_event "error $1: dispatch missing or unreadable:$miss"
+  return 1
+}
+
 # stdin into $MC_IN, once.
 mc_read_input() {
   if [ -z "${MC_IN_READ:-}" ]; then
