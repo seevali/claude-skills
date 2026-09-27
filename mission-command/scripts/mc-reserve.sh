@@ -12,6 +12,8 @@ F_HD_RE="${GIT_COMMIT_RE}(.*[[:space:]])?-F[[:space:]]+-[[:space:]]*\$"
 M_HD_RE="${GIT_COMMIT_RE}(.*[[:space:]])?-m[[:space:]]*\"\$"
 
 CAT_HD_RE='^[$][(]cat[[:space:]]+<<'
+# The two allowed stderr forms, `2>&1` and `2>/dev/null`, read from the `>`.
+STDERR_RE='^>(&1|/dev/null)([[:space:];|&]|$)'
 # take_heredoc S POS: at S[POS] is `<<`. Accepts only a quoted tag
 # (<<'TAG' or <<"TAG") that is the last token of its line; skips the body
 # through the line whose trimmed text is TAG (trimming accepts a superset of
@@ -37,7 +39,8 @@ take_heredoc() {
 # unquoted && || ; | & and newlines (newlines inside quotes become spaces),
 # with the two landing heredocs stripped (the $(cat <<'TAG' … TAG) idiom is
 # replaced by COMMIT_HEREDOC). Returns 1 (deny) on any other unquoted `<<`,
-# on unquoted process substitution and on any unquoted redirection (> >> <).
+# on unquoted process substitution and on any unquoted redirection (> >> <)
+# other than a whole-word `2>&1` or `2>/dev/null`, which is dropped.
 segments() {
   local s="$1" n=${#1} i=0 c nx q="" seg="" dq=-1 out=""
   while (( i < n )); do
@@ -73,6 +76,9 @@ segments() {
           [[ "$seg" =~ $F_HD_RE ]] || return 1
           take_heredoc "$s" "$i" || return 1
           out+="$seg"$'\n'; seg=""; i=$HD_END; continue
+        fi
+        if [ "$c" = '>' ] && [[ "$seg" =~ [[:space:]]2$ ]] && [[ "${s:i}" =~ $STDERR_RE ]]; then
+          seg="${seg%2}"; i=$(( i + 1 + ${#BASH_REMATCH[1]} )); continue
         fi
         return 1 ;;  # process substitution or an unquoted redirection
       *) seg+="$c" ;;
