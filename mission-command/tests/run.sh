@@ -176,13 +176,23 @@ o="$(stop "$TR")"
 check "stop gate blocks on placeholder return" has "$o" "'## Return' is empty or placeholder"
 filled "$RF"
 check "stop gate passes when clean and filled" empty "$(stop "$TR")"
-check "stop gate ignores stop_hook_active" empty "$(placeholder "$RF"; stop "$TR" '{"stop_hook_active":true}')"
-# two blocks then release, same key
+check "stop gate never blocks when stop_hook_active" empty "$(placeholder "$RF"; stop "$TR" '{"stop_hook_active":true}')"
+# one block, then the stop_hook_active re-check releases with an event (finding 13)
 IN="$(jq -nc --arg tp "$TR" '{session_id:"rel-1",transcript_path:$tp,hook_event_name:"Stop",stop_hook_active:false}')"
-o1="$(printf '%s' "$IN" | bash "$S/mc-stop-gate.sh")"; o2="$(printf '%s' "$IN" | bash "$S/mc-stop-gate.sh")"; o3="$(printf '%s' "$IN" | bash "$S/mc-stop-gate.sh")"; rc3=$?
-check "stop gate blocks twice then releases" bash -c "[ -n '$( [ -n "$o1" ] && [ -n "$o2" ] && echo y)' ] && [ -z '$o3' ] && [ $rc3 -eq 0 ]"
-check "stop gate release event in gauge file" grep -q '^event: .*stop-gate released after 2 blocks' "$DISP.gauge"
-check "stop gate block events in gauge file" grep -q '^event: .*stop-gate block 2 ' "$DISP.gauge"
+o1="$(printf '%s' "$IN" | bash "$S/mc-stop-gate.sh")"; o2="$(printf '%s' "$IN" | jq -c '.stop_hook_active = true' | bash "$S/mc-stop-gate.sh")"; rc2=$?
+check "stop gate blocks once, then re-check releases (finding 13)" bash -c '[ -n "$1" ] && [ -z "$2" ] && [ "$3" -eq 0 ]' _ "$o1" "$o2" "$rc2"
+check "stop gate blocked event in gauge file" grep -q "^event: .*stop-gate blocked ('## Return' is empty or placeholder)" "$DISP.gauge"
+check "stop gate release event in gauge file (finding 13)" grep -q "^event: .*stop-gate released, still unlanded ('## Return' is empty or placeholder)" "$DISP.gauge"
+check "stop gate blocks again on a fresh stop, no counter (finding 16)" blocked "$(printf '%s' "$IN" | bash "$S/mc-stop-gate.sh")"
+filled "$RF"; nrel="$(grep -c 'released' "$DISP.gauge")"
+check "stop gate re-check passes silently once landed (finding 16)" bash -c "[ -z '$(stop "$TR" '{"stop_hook_active":true}')' ] && [ \$(grep -c released '$DISP.gauge') -eq $nrel ]"
+two='# Return: W-1\n\n## Return\nDid the thing because of the reason.\nChanged foo.ts; test passed 12/12.\n'
+for ph in "TBD - later" "TODO: write this" "tbd" "[TBD]"; do
+  printf "$two%s\n" "$ph" > "$RF"
+  check "stop gate: '$ph' is a placeholder (finding 15)" blocked "$(stop "$TR")"
+done
+printf '# Return: W-1\n\n## Return\n### Decisions\n### Changes\n### Commands\n' > "$RF"
+check "stop gate: headings are not content lines (finding 15)" blocked "$(stop "$TR")"
 printf '# Return: W-1\n\n## Return\nfixed the TODO in foo.ts\nwrote <return_file> into the prompt text\nall green\n' > "$RF"
 check "stop gate accepts prose mentioning TODO and <...>" empty "$(stop "$TR")"
 
