@@ -211,13 +211,15 @@ check "mc-dispatch fails without a cap" bash -c "cd '$P' && HOME='$T/home' bash 
 check "mc-dispatch keeps an existing return file" bash -c "filled() { :; }; echo keep > '$T/r9/W-6.md'; cd '$P' && HOME='$T/home' bash '$S/mc-dispatch.sh' --unit W-6 --agent fake --worktree '$WT' --return '$T/r9/W-6.md' --out '$T/r9/W-6.json' >/dev/null && [ \"\$(cat '$T/r9/W-6.md')\" = keep ]"
 
 # --- mc-run.sh (dry run only; never launches claude) ------------------------------
-echo "work it" > "$T/brief.md"
+echo "work it" > "$T/brief.md"; cp "$P/.claude/agents/fake.md" "$T/home/.claude/agents/fake.md"
 o="$(cd "$P" && HOME="$T/home" bash "$S/mc-run.sh" --dry-run "$T/r9/W-9.dispatch.json" fake "$T/brief.md")"
 check "mc-run dry-run command line" bash -c 'o="$1"; for w in "claude -p" "MC_DISPATCH='"$T"'/r9/W-9.dispatch.json" "--agent fake" "--max-turns 40" "--effort low" "--output-format json" "--strict-mcp-config" "--disable-slash-commands" "--permission-mode bypassPermissions" "< /dev/null" "W-9.run.json"; do printf "%s" "$o" | grep -qF -- "$w" || exit 1; done' _ "$o"
 check "mc-run dry-run runs from the worktree" has "$o" "cd $WT && "
 o="$(cd "$P" && HOME="$T/home" bash "$S/mc-run.sh" --dry-run "$T/r9/W-8.dispatch.json" homeonly "$T/brief.md")"
 check "mc-run omits --effort when the definition has none" hasnt "$o" "--effort"
 check "mc-run rejects wrong argument count" bash -c "bash '$S/mc-run.sh' --dry-run '$T/r9/W-9.dispatch.json' fake; [ \$? -eq 2 ]"
+mkdir -p "$T/emptyhome"
+check "mc-run requires a global definition (project-only: exit 2, says copy)" bash -c "o=\$(cd '$P' && HOME='$T/emptyhome' bash '$S/mc-run.sh' --dry-run '$T/r9/W-9.dispatch.json' fake '$T/brief.md' 2>&1); rc=\$?; [ \$rc -eq 2 ] && [ \$(printf '%s\n' \"\$o\" | wc -l) -eq 1 ] && printf '%s' \"\$o\" | grep -qF 'cannot see project definitions' && printf '%s' \"\$o\" | grep -qF '~/.claude/agents/fake.md'"
 check "mc-run rejects a missing brief" bash -c "cd '$P' && HOME='$T/home' bash '$S/mc-run.sh' --dry-run '$T/r9/W-9.dispatch.json' fake '$T/nope.md'; [ \$? -eq 2 ]"
 
 echo "passed $PASS failed $FAIL"
