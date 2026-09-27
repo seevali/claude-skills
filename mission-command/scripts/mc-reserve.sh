@@ -3,7 +3,7 @@
 # allows only landing actions. Contract: references/landing.md, hook 2.
 [ "${MC_HOOKS_OFF:-}" = "1" ] && exit 0
 set -u
-. "$(dirname "$0")/mc-hook-lib.sh" 2>/dev/null || exit 0
+{ . "$(dirname "$0")/mc-hook-lib.sh"; } 2>/dev/null || exit 0
 
 # `git [-C dir] commit` at the start of a segment.
 GIT_COMMIT_RE='^[[:space:]]*git([[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+))?[[:space:]]+commit([[:space:]]|$)'
@@ -142,9 +142,11 @@ path_allowed() {
 }
 
 main() {
+  mc_require_jq || return 0
   mc_read_input
   MC_DISPATCH_FILE="$(mc_dispatch)"
   [ -n "$MC_DISPATCH_FILE" ] || return 0
+  mc_require_fields reserve || return 0
   mc_numbers || return 0
   [ "$MC_T" -ge "$MC_S" ] || return 0
   local tool mode rf reason wt

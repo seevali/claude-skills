@@ -4,7 +4,7 @@
 # Contract: references/landing.md, hook 3.
 [ "${MC_HOOKS_OFF:-}" = "1" ] && exit 0
 set -u
-. "$(dirname "$0")/mc-hook-lib.sh" 2>/dev/null || exit 0
+{ . "$(dirname "$0")/mc-hook-lib.sh"; } 2>/dev/null || exit 0
 
 # '## Return' is filled: >= 3 non-blank lines before the next '## ' heading,
 # none of them a placeholder.
@@ -29,10 +29,12 @@ return_filled() {
 }
 
 main() {
+  mc_require_jq || return 0
   mc_read_input
   [ "$(mc_in '.stop_hook_active')" = "true" ] && return 0
   MC_DISPATCH_FILE="$(mc_dispatch)"
   [ -n "$MC_DISPATCH_FILE" ] || return 0
+  mc_require_fields stop-gate || return 0
   local wt rf key cnt problems="" n st scope=()
   wt="$(mc_field worktree)"; rf="$(mc_field return_file)"
   if [ "$(mc_landing)" = "commit" ]; then
