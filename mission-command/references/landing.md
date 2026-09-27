@@ -56,7 +56,7 @@ The hooks discover the dispatch file by reading the first `user` line of the wor
 
 ### The return file
 
-The worker's report, at `return_file`. The worker creates it on its first turn and keeps it real as it goes. Required shape:
+The worker's report, at `return_file`. The worker creates it on its first turn and keeps it real as it goes. It may live inside or outside the worktree. Required shape:
 
 ```
 # Return: W-12
@@ -68,7 +68,7 @@ The worker's report, at `return_file`. The worker creates it on its first turn a
 <appended by mc-land.sh only; absent when the worker landed itself>
 ```
 
-The stop gate considers `## Return` filled when at least three non-blank lines follow the heading and none of them is a placeholder (`<...>`, `TBD`, `TODO`, `_fill_`).
+The stop gate's rule for "filled" is under the stop gate below.
 
 ### The gauge file
 
@@ -86,7 +86,7 @@ Only that first line is rewritten on each call. Any hook event worth recording (
 
 ## The hooks
 
-All three are shell scripts under `scripts/`, read hook JSON on stdin, need only `bash`, `jq`, `git`, and must finish in well under 100 ms on an 800 KB transcript. On any internal error they exit 0 with no output and append `event: error <what>` to the gauge file if the dispatch is known; a hook must never fail a tool call by accident. `MC_HOOKS_OFF=1` in the environment makes all three inert.
+All three are shell scripts under `scripts/`, read hook JSON on stdin, need only `bash`, `jq`, `git`, and must finish in well under 100 ms on an 800 KB transcript. On any internal error they exit 0 with no output (stderr included: every helper call is redirected) and append `event: error <what>` to the gauge file if the dispatch is known; when `jq` itself is missing they append one line to `${MC_HOOK_TMP:-/tmp/mc-hooks}/errors.log` instead, so an unguarded fleet is at least visible. A hook must never fail a tool call by accident. `MC_HOOKS_OFF=1` in the environment makes all three inert.
 
 Shared library `scripts/mc-hook-lib.sh` (sourced) provides: `mc_read_input` (stdin into `$MC_IN`), `mc_key`, `mc_transcript` (per the facts above), `mc_dispatch` (cached discovery), `mc_turns` (distinct assistant message ids in the transcript), `mc_field <name>` (dispatch field), `mc_gauge_write`, `mc_gauge_event`.
 
@@ -104,16 +104,23 @@ as `{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"..
 
 When `T ≥ S`, allow only the landing set and deny everything else:
 
-- `Bash`: strip heredoc bodies, then split the command on `&&`, `||`, `;`, `|` and newlines outside quotes; every segment must match `^\s*git(\s+-C\s+\S+)?\s+(add|commit|status|diff|log|rev-parse|show)\b`, and a `-C <dir>` must resolve to `worktree` (any other directory is denied). Command substitution (`$(...)`, backticks) inside a segment is denied, with one exception: `$(cat <<'EOF' … EOF)` (any quoted or unquoted heredoc tag, `cat` only) as a `git commit` message, which is the standard commit idiom and must pass. For a `return-only` unit every `Bash` call is denied. The denial reason names the allowed forms so a worker does not spend reserve turns guessing: `git add …`, `git commit -m "…"`, `git commit -F - <<'EOF'`, `git commit -m "$(cat <<'EOF' … EOF)"`.
+- `Bash`, in this order, each step denying on failure:
+  1. **Heredocs.** Only a quoted-tag heredoc (`<<'TAG'` or `<<"TAG"`) is recognised, and only in the two landing forms: `git commit -F - <<'TAG'` (the opener is the last token of its segment) and `git commit -m "$(cat <<'TAG' … TAG)"`. Their bodies are stripped before any other check. Any other occurrence of `<<` (an unquoted tag, a `<<` inside a quoted string, a heredoc on any other command) is denied: bash expands `$(...)` inside an unquoted body, and a `<<` inside quotes is not a heredoc at all.
+  2. **Split** the remainder on `&&`, `||`, `;`, `|`, `&` and newlines outside quotes. Every segment must match `^\s*git(\s+-C\s+\S+)?\s+(add|commit|status|diff|log|rev-parse|show)\b`.
+  3. **No escape hatches** in any segment: command substitution (`$(`, backticks) other than the recognised `$(cat <<'TAG'` opener, process substitution (`<(`, `>(`), unquoted redirections (`>`, `>>`, `<` other than the recognised `<<`), and the `--output` option of `diff`/`log`/`show`.
+  4. **The repository is the worktree.** A `-C <dir>` is accepted with surrounding single or double quotes and a leading `~` (both are normalised before resolving) and must resolve to `worktree`; any other directory is denied. A segment with no `-C` is allowed only when the hook input's `cwd` resolves to the worktree; otherwise it is denied with a reason that says to use `git -C <worktree>`, because an in-session worker's `cwd` is the conductor's checkout and a bare `git add -A` there stages the whole superproject.
+  For a `return-only` unit every `Bash` call is denied. The denial reason names the allowed forms so a worker does not spend reserve turns guessing: `git -C <worktree> add …`, `git -C <worktree> commit -m "…"`, `git -C <worktree> commit -F - <<'EOF'`, `git -C <worktree> commit -m "$(cat <<'EOF' … EOF)"`.
 - `Read`, `Write`, `Edit`: `tool_input.file_path` resolves (realpath, or plain string compare when the file does not exist yet) to `return_file` or `tracker`.
 
-Denial output: `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"[mc] Reserve: turn T of C. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of <return_file>. Commit what is on disk, fill '## Return', then stop."}}` (return-only: without the git clauses). Before `S`, or with no dispatch, the hook exits 0 silently.
+Denial output: `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"[mc] Reserve: turn T of C. Only landing actions are allowed: <the forms above>, and Read/Write/Edit of <return_file>. Commit what is on disk, fill '## Return', then stop."}}` (return-only: without the git clauses). Before `S`, with no dispatch, or with a dispatch missing `worktree` or `return_file` (an internal error, logged as an `event: error` to the gauge file when it can be located), the hook exits 0 silently: a broken dispatch must never deny a worker its landing.
 
 `T` here is the same `distinct assistant ids + 1` as in the gauge; the live probe of 2026-09-27 showed the lag applies to PreToolUse as well.
 
 ### 3. Stop gate (`mc-stop-gate.sh`, Stop, matcher none)
 
-With a dispatch known, check two things: `git -C <worktree> status --porcelain` is empty (untracked files count as dirty), and `## Return` is filled per the return-file rule. If either fails, output `{"decision":"block","reason":"[mc] Not landed: <dirty worktree: N paths | '## Return' is empty or placeholder>. Commit everything on disk and fill '## Return' in <return_file>, then stop."}`. Blocks are counted per key; after two blocks the gate releases (exit 0) and appends `event: stop-gate released after 2 blocks` to the gauge file so the conductor sees it. The gate never blocks when `stop_hook_active` is true.
+With a dispatch known and both `worktree` and `return_file` present (otherwise: inert, `event: error` in the gauge file), check two things: `git -C <worktree> status --porcelain [-- <scope>]` is empty (untracked files count as dirty; a failing `git status` is an `event: error`, not dirt), and `## Return` is filled per the return-file rule. If either fails and `stop_hook_active` is false, output `{"decision":"block","reason":"[mc] Not landed: <dirty worktree: N paths | '## Return' is empty or placeholder>. Commit everything on disk and fill '## Return' in <return_file>, then stop."}` and append `event: stop-gate blocked (<what>)` to the gauge file. On the stop that follows a block the harness sets `stop_hook_active` to true; the gate then re-checks once and never blocks again: landed now → exit 0 silently; still not landed → exit 0 and append `event: stop-gate released, still unlanded (<what>)` so the conductor sees it. There is no block counter: one block, one re-check.
+
+The return-file rule: a content line is a non-blank line after the `## Return` heading that is not itself a heading (`#…`). `## Return` is filled when at least three content lines exist and none is a placeholder. A placeholder is a line that is wholly `<…>`, contains `_fill_`, or starts (after optional brackets, dashes or whitespace, any case) with `TBD` or `TODO`.
 
 ## Conductor scripts
 
@@ -127,7 +134,7 @@ Reads `maxTurns:` from `<cwd>/.claude/agents/<agent>.md`, else `~/.claude/agents
 
 ### `mc-land.sh <dispatch.json>`
 
-The conductor's one-command recovery when a worker capped anyway. In the worktree: if dirty, `git add -A && git commit -q -m "wip(<unit>): capped worker's leftovers, unreviewed"`; read `turns` from the gauge file; if `gate` is non-empty, run it in the worktree with output to `<dispatch dir>/<unit>.gate.log`; append a `## Landing` section to the return file (date, turns, leftover commit hash or `clean`, gate exit code and log path); print one summary line. Never pushes, never touches the tracker.
+The conductor's one-command recovery when a worker capped anyway. In the worktree: if dirty (within `scope` when set), `git add -A [-- <scope>] && git commit -q -m "wip(<unit>): capped worker's leftovers, unreviewed"`; read `turns` from the gauge file; if `gate` is non-empty, run it in the worktree with output to `<dispatch dir>/<unit>.gate.log`; append a `## Landing` section to the return file (date, turns, leftover commit hash or `clean`, gate exit code and log path); when the return file is inside the worktree, commit that append too as `land(<unit>): landing record`; print one summary line. Idempotent: when `## Landing` already exists it neither commits, nor runs the gate, nor appends; it prints the existing summary. Never pushes, never touches the tracker.
 
 ### `mc-run.sh <dispatch.json> <agent> <brief-file>`
 
