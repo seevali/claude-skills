@@ -7,6 +7,16 @@ MC_IN="${MC_IN:-}"
 MC_TMP="${MC_HOOK_TMP:-/tmp/mc-hooks}"
 MC_DISPATCH_FILE="${MC_DISPATCH_FILE:-}"
 
+# The one path normaliser: every path that is compared or joined goes through it.
+# Git Bash (cygpath present): C:\x\y and C:/x/y become /c/x/y first; then
+# realpath -m. Empty in, empty out; the input unchanged if realpath fails.
+mc_norm_path() {
+  local p="${1:-}"
+  [ -n "$p" ] || return 0
+  if command -v cygpath >/dev/null 2>&1; then p="$(cygpath -u "$p" 2>/dev/null || printf '%s' "$p")"; fi
+  realpath -m -- "$p" 2>/dev/null || printf '%s' "$p"
+}
+
 # jq present, else one line to $MC_TMP/errors.log (no dispatch can be read
 # without jq, so the gauge file is out of reach) and return 1: the hook goes inert.
 mc_require_jq() {
@@ -54,7 +64,7 @@ mc_key() {
 # <transcript without .jsonl>/subagents/agent-<agent_id>.jsonl.
 mc_transcript() {
   local tp aid
-  tp="$(mc_in '.transcript_path')"
+  tp="$(mc_norm_path "$(mc_in '.transcript_path')")"
   [ -n "$tp" ] || return 0
   aid="$(mc_in '.agent_id')"
   if [ -n "$aid" ]; then

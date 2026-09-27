@@ -7,22 +7,24 @@
 set -uo pipefail
 
 die() { printf 'mc-run: %s\n' "$*" >&2; exit 2; }
+# mc_norm_path (one path normaliser, cygpath-aware) comes from the hook library.
+. "$(dirname "$0")/mc-hook-lib.sh" || { printf '%s: cannot source mc-hook-lib.sh\n' "${0##*/}" >&2; exit 2; }
 dry=0; args=()
 for a in "$@"; do
   case "$a" in --dry-run) dry=1 ;; -h|--help) sed -n '2,7p' "$0"; exit 0 ;; *) args+=("$a") ;; esac
 done
 [ ${#args[@]} -eq 3 ] || die "usage: mc-run.sh [--dry-run] <dispatch.json> <agent> <brief-file>"
-disp="$(realpath -m -- "${args[0]}")"; agent="${args[1]}"; brief="$(realpath -m -- "${args[2]}")"
+disp="$(mc_norm_path "${args[0]}")"; agent="${args[1]}"; brief="$(mc_norm_path "${args[2]}")"
 [ -f "$disp" ] || die "no dispatch file: $disp"
 [ -f "$brief" ] || die "no brief file: $brief"
 f() { jq -r --arg f "$1" '.[$f] // empty' "$disp"; }
-unit="$(f unit)"; wt="$(f worktree)"; cap="$(f cap)"; mode="$(f permission_mode)"
+unit="$(f unit)"; wt="$(mc_norm_path "$(f worktree)")"; cap="$(f cap)"; mode="$(f permission_mode)"
 [ -n "$unit" ] && [ -n "$wt" ] && [ -n "$cap" ] || die "dispatch lacks unit, worktree or cap"
 [ -n "$mode" ] || mode=bypassPermissions
 
 # A headless run starts in the worktree and sees only global definitions
 # (references/landing.md, "Facts"), so ~/.claude/agents is the only home.
-def="$HOME/.claude/agents/$agent.md"
+def="$(mc_norm_path "$HOME")/.claude/agents/$agent.md"
 if [ ! -f "$def" ]; then
   for d in "$PWD/.claude/agents/$agent.md" "$wt/.claude/agents/$agent.md"; do
     [ -f "$d" ] && die "'$agent' is defined only at $d; a headless run cannot see project definitions — copy it to ~/.claude/agents/$agent.md"

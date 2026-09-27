@@ -9,6 +9,8 @@
 set -euo pipefail
 
 die() { printf 'mc-dispatch: %s\n' "$*" >&2; exit 2; }
+# mc_norm_path (one path normaliser, cygpath-aware) comes from the hook library.
+. "$(dirname "$0")/mc-hook-lib.sh" || { printf '%s: cannot source mc-hook-lib.sh\n' "${0##*/}" >&2; exit 2; }
 
 unit="" agent="" worktree="" ret="" tracker="" gate="" reserve=6 cap="" mode="bypassPermissions" landing="commit" out=""
 scope=()
@@ -36,7 +38,7 @@ case "$landing" in commit|return-only) ;; *) die "--landing must be commit or re
 
 # maxTurns from the definition's frontmatter: <cwd>/.claude/agents, then ~/.claude/agents.
 if [ -z "$cap" ]; then
-  for def in "$PWD/.claude/agents/$agent.md" "$HOME/.claude/agents/$agent.md"; do
+  for def in "$PWD/.claude/agents/$agent.md" "$(mc_norm_path "$HOME")/.claude/agents/$agent.md"; do
     [ -f "$def" ] || continue
     cap="$(awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} /^maxTurns:/{sub(/^maxTurns:[ \t]*/,""); gsub(/[ \t"'"'"']/,""); print; exit}' "$def")"
     [ -n "$cap" ] && break
@@ -46,7 +48,7 @@ fi
 case "$cap$reserve" in *[!0-9]*) die "cap and reserve must be integers (cap=$cap reserve=$reserve)" ;; esac
 [ "$reserve" -lt "$cap" ] || die "reserve ($reserve) must be below cap ($cap)"
 
-abs() { realpath -m -- "$1"; }
+abs() { mc_norm_path "$1"; }
 worktree="$(abs "$worktree")"; ret="$(abs "$ret")"; out="$(abs "$out")"
 # The MC_DISPATCH= token is read up to the first whitespace.
 case "$out$ret" in *[[:space:]]*) die "--out and --return must not contain whitespace ($out, $ret)" ;; esac
