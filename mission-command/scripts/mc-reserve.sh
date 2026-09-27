@@ -5,73 +5,101 @@
 set -u
 . "$(dirname "$0")/mc-hook-lib.sh" 2>/dev/null || exit 0
 
-# Drop heredoc bodies (the lines after a line with <<DELIM, through the DELIM
-# line) so a `git commit` heredoc message stays one segment.
-strip_heredocs() {
-  local line delim="" out="" hre="(^|[^<])[<][<]-?[[:space:]]*['\"]?([A-Za-z_][A-Za-z0-9_]*)"
-  while IFS= read -r line || [ -n "$line" ]; do
-    if [ -n "$delim" ]; then
-      local t="${line#"${line%%[![:space:]]*}"}"
-      [ "$t" = "$delim" ] && delim=""
-      continue
-    fi
-    out+="$line"$'\n'
-    if [[ "$line" =~ $hre ]]; then
-      delim="${BASH_REMATCH[2]}"
-    fi
-  done <<< "$1"
-  printf '%s' "$out"
+# `git [-C dir] commit` at the start of a segment.
+GIT_COMMIT_RE='^[[:space:]]*git([[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+))?[[:space:]]+commit([[:space:]]|$)'
+# The two landing heredoc openers: `… commit … -F -` then `<<`, and `… commit … -m "` then `$(cat <<`.
+F_HD_RE="${GIT_COMMIT_RE}(.*[[:space:]])?-F[[:space:]]+-[[:space:]]*\$"
+M_HD_RE="${GIT_COMMIT_RE}(.*[[:space:]])?-m[[:space:]]*\"\$"
+
+CAT_HD_RE='^[$][(]cat[[:space:]]+<<'
+# take_heredoc S POS: at S[POS] is `<<`. Accepts only a quoted tag
+# (<<'TAG' or <<"TAG") that is the last token of its line; skips the body
+# through the line whose trimmed text is TAG (trimming accepts a superset of
+# bash's terminators, so it can only end the body early, never late). Sets
+# HD_END to the index after the TAG line (or the end of S). Returns 1 otherwise.
+take_heredoc() {
+  local s="$1" pos="$2" n=${#1} j line t tag
+  local re="^<<-?[ 	]*('([A-Za-z_][A-Za-z0-9_]*)'|\"([A-Za-z_][A-Za-z0-9_]*)\")[ 	]*"$'\n'
+  [[ "${s:pos}" =~ $re ]] || return 1
+  tag="${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
+  j=$(( pos + ${#BASH_REMATCH[0]} ))
+  while (( j < n )); do
+    line="${s:j}"; line="${line%%$'\n'*}"
+    j=$(( j + ${#line} + 1 ))
+    t="${line#"${line%%[![:space:]]*}"}"; t="${t%"${t##*[![:space:]]}"}"
+    if [ "$t" = "$tag" ]; then HD_END=$j; return 0; fi
+  done
+  HD_END=$n
+  return 0
 }
 
-# Split on unquoted && || ; | and newlines; one segment per output line
-# (newlines inside quotes become spaces).
-split_segments() {
-  local s="$1" i c n seg="" q=""
-  n=${#s}
-  for (( i = 0; i < n; i++ )); do
-    c="${s:i:1}"
-    if [ -n "$q" ]; then
-      if [ "$c" = "\\" ] && [ "$q" = '"' ]; then seg+="$c${s:i+1:1}"; i=$(( i + 1 )); continue; fi
-      [ "$c" = "$q" ] && q=""
+# segments CMD: contract steps 1-2. Prints one segment per line: split on
+# unquoted && || ; | & and newlines (newlines inside quotes become spaces),
+# with the two landing heredocs stripped (the $(cat <<'TAG' … TAG) idiom is
+# replaced by COMMIT_HEREDOC). Returns 1 (deny) on any other unquoted `<<`
+# and on unquoted process substitution.
+segments() {
+  local s="$1" n=${#1} i=0 c nx q="" seg="" dq=-1 out=""
+  while (( i < n )); do
+    c="${s:i:1}"; nx="${s:i+1:1}"
+    if [ "$q" = "'" ]; then
+      [ "$c" = "'" ] && q=""
       [ "$c" = $'\n' ] && c=' '
-      seg+="$c"; continue
+      seg+="$c"; i=$(( i + 1 )); continue
+    fi
+    if [ "$q" = '"' ]; then
+      if [ "$c" = "\\" ]; then
+        [ "$nx" = $'\n' ] && nx=' '
+        seg+="$c$nx"; i=$(( i + 2 )); continue
+      fi
+      if [ "$c" = '$' ] && (( i == dq + 1 )) && [[ "${s:i}" =~ $CAT_HD_RE ]] \
+         && [[ "$seg" =~ $M_HD_RE ]]; then
+        local p="${s:i}"; p="${p%%<<*}"
+        take_heredoc "$s" $(( i + ${#p} )) || return 1
+        [[ "${s:HD_END}" =~ ^[[:blank:]]*\) ]] || return 1
+        seg+="COMMIT_HEREDOC"; i=$(( HD_END + ${#BASH_REMATCH[0]} )); continue
+      fi
+      [ "$c" = '"' ] && q=""
+      [ "$c" = $'\n' ] && c=' '
+      seg+="$c"; i=$(( i + 1 )); continue
     fi
     case "$c" in
-      "'"|'"') q="$c"; seg+="$c" ;;
-      "\\") seg+="$c${s:i+1:1}"; i=$(( i + 1 )) ;;
-      ';'|'|'|$'\n') printf '%s\n' "$seg"; seg=""; [ "${s:i+1:1}" = '|' ] && [ "$c" = '|' ] && i=$(( i + 1 )) ;;
-      '&') if [ "${s:i+1:1}" = '&' ]; then printf '%s\n' "$seg"; seg=""; i=$(( i + 1 )); else seg+="$c"; fi ;;
+      "'"|'"') q="$c"; dq=$i; seg+="$c" ;;
+      "\\") [ "$nx" = $'\n' ] && nx=' '; seg+="$c$nx"; i=$(( i + 1 )) ;;
+      ';'|$'\n') out+="$seg"$'\n'; seg="" ;;
+      '|'|'&') out+="$seg"$'\n'; seg=""; [ "$nx" = "$c" ] && i=$(( i + 1 )) ;;
+      '<'|'>')
+        if [ "$c$nx" = '<<' ]; then
+          [[ "$seg" =~ $F_HD_RE ]] || return 1
+          take_heredoc "$s" "$i" || return 1
+          out+="$seg"$'\n'; seg=""; i=$HD_END; continue
+        fi
+        [ "$nx" = '(' ] && return 1
+        seg+="$c" ;;
       *) seg+="$c" ;;
     esac
+    i=$(( i + 1 ))
   done
-  printf '%s\n' "$seg"
+  printf '%s%s\n' "$out" "$seg"
 }
 
 resolve() { realpath -m -- "$1" 2>/dev/null || printf '%s' "$1"; }
 
 bash_allowed() {
-  local seg wt="$2" re='^[[:space:]]*git([[:space:]]+-C[[:space:]]+([^[:space:]]+))?[[:space:]]+(add|commit|status|diff|log|rev-parse|show)([^A-Za-z0-9_]|$)'
-  # The one allowed command substitution: $(cat <<TAG ... TAG) as a git commit
-  # -m argument. Heredoc bodies are stripped before splitting, so what remains
-  # of that idiom is just its residual opener immediately followed by the
-  # closing paren/quote, e.g. `$(cat <<'EOF' )"`. Recognise that residual and
-  # blank it out before the general $( check.
-  local heredoc_re="\\\$\\(cat[[:space:]]+<<-?[[:space:]]*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\\1[[:space:]]*\\)"
-  local any=0 dir stripped
+  local seg wt="$2" segs dir any=0 re='^[[:space:]]*git([[:space:]]+-C[[:space:]]+([^[:space:]]+))?[[:space:]]+(add|commit|status|diff|log|rev-parse|show)([^A-Za-z0-9_]|$)'
+  segs="$(segments "$1")" || return 1
   while IFS= read -r seg; do
     [[ "$seg" =~ ^[[:space:]]*$ ]] && continue
-    stripped="$(printf '%s' "$seg" | sed -E "s/${heredoc_re}/COMMIT_HEREDOC/g")"
-    # Command substitution or backticks anywhere in a segment are denied
-    # outright, even inside an otherwise-allowed git invocation, except the
-    # commit-heredoc idiom just blanked out above.
-    [[ "$stripped" == *'$('* || "$seg" == *'`'* ]] && return 1
+    # Contract step 3: substitutions anywhere in a segment (quoted or not),
+    # other than the recognised commit heredoc, and any `<<` left over.
+    [[ "$seg" == *'$('* || "$seg" == *'`'* || "$seg" == *'<<'* || "$seg" == *'<('* || "$seg" == *'>('* ]] && return 1
     [[ "$seg" =~ $re ]] || return 1
     dir="${BASH_REMATCH[2]}"
     if [ -n "$dir" ]; then
       [ -n "$wt" ] && [ "$(resolve "$dir")" = "$(resolve "$wt")" ] || return 1
     fi
     any=1
-  done < <(split_segments "$(strip_heredocs "$1")")
+  done <<< "$segs"
   [ "$any" = 1 ]
 }
 
