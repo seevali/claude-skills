@@ -145,6 +145,10 @@ check "reserve denial reason text" has "$(pre_bash "$TR" "pnpm test" | jq -r .ho
 check "reserve denies redirection > (finding 2)" denied "$(pre_bash "$TR" "git status > src/a.ts" "$INWT")"
 check "reserve denies redirection >> (finding 2)" denied "$(pre_bash "$TR" "git status >> /etc/x" "$INWT")"
 check "reserve denies --output (finding 3)" denied "$(pre_bash "$TR" "git log --output=src/a.ts -1" "$INWT")"
+check "reserve allows 2>/dev/null after a git segment" empty "$(pre_bash "$TR" "git -C $WT status 2>/dev/null")"
+check "reserve allows 2>&1 after a git segment" empty "$(pre_bash "$TR" "git -C $WT status 2>&1")"
+check "reserve denies 2>x" denied "$(pre_bash "$TR" "git -C $WT status 2>x")"
+check "reserve denies >/dev/null" denied "$(pre_bash "$TR" "git -C $WT status >/dev/null")"
 check "reserve allows > inside a quoted message" empty "$(pre_bash "$TR" "git commit -m 'a > b'" "$INWT")"
 check "reserve allows -C \"<worktree>\" (finding 7)" empty "$(pre_bash "$TR" "git -C \"$WT\" status")"
 check "reserve allows -C '<worktree>' (finding 7)" empty "$(pre_bash "$TR" "git -C '$WT' status")"
@@ -187,9 +191,13 @@ check "stop gate blocks again on a fresh stop, no counter (finding 16)" blocked 
 filled "$RF"; nrel="$(grep -c 'released' "$DISP.gauge")"
 check "stop gate re-check passes silently once landed (finding 16)" bash -c "[ -z '$(stop "$TR" '{"stop_hook_active":true}')' ] && [ \$(grep -c released '$DISP.gauge') -eq $nrel ]"
 two='# Return: W-1\n\n## Return\nDid the thing because of the reason.\nChanged foo.ts; test passed 12/12.\n'
-for ph in "TBD - later" "TODO: write this" "tbd" "[TBD]"; do
+for ph in "TBD - later" "TODO: write this" "tbd" "[TBD]" "TODO:" "- tbd later"; do
   printf "$two%s\n" "$ph" > "$RF"
   check "stop gate: '$ph' is a placeholder (finding 15)" blocked "$(stop "$TR")"
+done
+for ct in "Todoist sync fixed" "TBDx"; do
+  printf "$two%s\n" "$ct" > "$RF"
+  check "stop gate: '$ct' is content (whole-word rule)" empty "$(stop "$TR")"
 done
 printf '# Return: W-1\n\n## Return\n### Decisions\n### Changes\n### Commands\n' > "$RF"
 check "stop gate: headings are not content lines (finding 15)" blocked "$(stop "$TR")"
@@ -229,6 +237,10 @@ D10="$(mk_disp "$WT")"; jq 'del(.return_file)' "$D10" > "$D10.x" && mv "$D10.x" 
 check "dispatch without return_file: stop gate inert with event: error (finding 10)" bash -c "[ -z '$(stop "$TR10")' ] && grep -q '^event: .* error stop-gate: dispatch missing or unreadable: return_file' '$D10.gauge'"
 D11="$(mk_disp "$WT")"; jq 'del(.worktree)' "$D11" > "$D11.x" && mv "$D11.x" "$D11"; TR11="$(mk_transcript 37 "$T/f11.jsonl" "$D11")"
 check "dispatch without worktree: reserve inert on pnpm test and Write (finding 11)" bash -c "[ -z '$(pre_bash "$TR11" "pnpm test")' ] && [ -z '$(pre_file "$TR11" Write "$WT/any.txt")' ] && grep -q '^event: .* error reserve: dispatch missing or unreadable: worktree' '$D11.gauge'"
+D12="$(mk_disp "$WT")"; jq 'del(.worktree)' "$D12" > "$D12.x" && mv "$D12.x" "$D12"; TR12="$(mk_transcript 37 "$T/f12.jsonl" "$D12")"
+IN12="$(jq -nc --arg tp "$TR12" '{session_id:"err-once",transcript_path:$tp,cwd:"/",hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:"pnpm test"}}')"
+printf '%s' "$IN12" | bash "$S/mc-reserve.sh" >/dev/null; printf '%s' "$IN12" | bash "$S/mc-reserve.sh" >/dev/null
+check "broken dispatch: event: error logged once per worker key" [ "$(grep -c '^event: .* error ' "$D12.gauge")" -eq 1 ]
 BASH_BIN="$(command -v bash)"
 check "PATH=/nonexistent: all hooks silent on stderr (finding 12)" bash -c "for h in mc-gauge mc-reserve mc-stop-gate; do e=\$(printf '{}' | PATH=/nonexistent '$BASH_BIN' '$S/'\$h.sh 2>&1); [ -z \"\$e\" ] || exit 1; done"
 mkdir -p "$T/nojq"; for b in bash cat dirname mkdir date tr git grep realpath mv rm; do ln -sf "$(command -v $b)" "$T/nojq/$b"; done

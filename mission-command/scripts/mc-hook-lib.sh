@@ -16,12 +16,16 @@ mc_require_jq() {
 }
 
 # The dispatch fields every guarding hook needs. Returns 1 and logs
-# `event: error` when one is missing (an unreadable dispatch reads as empty).
+# `event: error` when one is missing (an unreadable dispatch reads as empty),
+# once per worker key: $MC_TMP/<key>.errlogged marks it logged.
 mc_require_fields() {
-  local f miss=""
+  local f miss="" key m=""
   for f in worktree return_file; do [ -n "$(mc_field "$f")" ] || miss="$miss $f"; done
   [ -z "$miss" ] && return 0
+  key="$(mc_key)"
+  if [ -n "$key" ]; then m="$MC_TMP/$key.errlogged"; [ -e "$m" ] && return 1; fi
   mc_gauge_event "error $1: dispatch missing or unreadable:$miss"
+  [ -n "$m" ] && { mkdir -p "$MC_TMP" && : > "$m"; } 2>/dev/null
   return 1
 }
 
