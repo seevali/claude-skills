@@ -124,6 +124,21 @@ check "reserve allows commit heredoc idiom \$(cat <<'EOF' ...)" empty "$(pre_bas
 msg
 EOF
 )\"")"
+check "reserve denies background & (finding 1)" denied "$(pre_bash "$TR" "git status & rm -rf src")"
+check "reserve denies process substitution <( (finding 4)" denied "$(pre_bash "$TR" "git diff <(touch pwned)")"
+check "reserve denies << inside a quoted message (finding 5)" denied "$(pre_bash "$TR" "git commit -m \"a <<EOF\"
+rm -rf src
+EOF")"
+check "reserve denies unquoted-tag heredoc -F - (finding 6)" denied "$(pre_bash "$TR" "git commit -F - <<EOF
+\$(touch pwned)
+EOF")"
+check "reserve denies unquoted-tag \$(cat <<EOF) (finding 6)" denied "$(pre_bash "$TR" "git commit -m \"\$(cat <<EOF
+\$(touch pwned)
+EOF
+)\"")"
+check "reserve denies a heredoc on another command" denied "$(pre_bash "$TR" "cat <<'EOF'
+x
+EOF")"
 check "reserve denies \$(pnpm test) as commit message" denied "$(pre_bash "$TR" "git commit -m \"\$(pnpm test)\"")"
 check "reserve denies pnpm test" denied "$(pre_bash "$TR" "pnpm test")"
 check "reserve denial reason text" has "$(pre_bash "$TR" "pnpm test")" "[mc] Reserve: turn 37 of 40. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of $RF. Commit what is on disk, fill '## Return', then stop."
