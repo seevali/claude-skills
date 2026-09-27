@@ -250,8 +250,16 @@ check "mc-land exits 0" [ $rc -eq 0 ]
 check "mc-land commits leftovers" bash -c "[ -z \"\$(git -C '$WT' status --porcelain)\" ] && git -C '$WT' log -1 --format=%s | grep -qF \"wip(W-1): capped worker's leftovers, unreviewed\""
 check "mc-land appends ## Landing" bash -c "grep -q '^## Landing' '$RF' && grep -q 'turns: 41 of 40' '$RF' && grep -q \"leftovers: \$(git -C '$WT' rev-parse --short HEAD)\" '$RF' && grep -q 'gate: exit 0, log $(dirname "$DISP")/W-1.gate.log' '$RF'"
 check "mc-land prints one summary line" bash -c "[ \$(printf '%s\n' '$o' | wc -l) -eq 1 ] && printf '%s' '$o' | grep -q '^\[mc-land\] W-1: turns=41/40'"
+H1="$(git -C "$WT" rev-parse HEAD)"; rm -f "$(dirname "$DISP")/W-1.gate.log"
 o="$(bash "$S/mc-land.sh" "$DISP")"
-check "mc-land on a clean worktree records clean" has "$o" "leftovers=clean"
+check "mc-land second run: no commit, no gate, one ## Landing (finding 18)" bash -c "[ \"\$(git -C '$WT' rev-parse HEAD)\" = '$H1' ] && [ ! -e '$(dirname "$DISP")/W-1.gate.log' ] && [ \$(grep -c '^## Landing' '$RF') -eq 1 ]"
+check "mc-land second run prints the existing summary (finding 18)" has "$o" "[mc-land] W-1: turns=41/40 leftovers=$(git -C "$WT" rev-parse --short HEAD) gate=0 log=$(dirname "$DISP")/W-1.gate.log (already landed"
+WT="$(mk_wt)"; DISP="$(mk_disp "$WT")"; jq --arg rf "$WT/ret.md" '.return_file = $rf' "$DISP" > "$DISP.x" && mv "$DISP.x" "$DISP"; filled "$WT/ret.md"; echo left > "$WT/left.txt"
+bash "$S/mc-land.sh" "$DISP" >/dev/null 2>&1
+check "mc-land commits its record inside the worktree (finding 19)" bash -c "[ -z \"\$(git -C '$WT' status --porcelain)\" ] && git -C '$WT' log -1 --format=%s | grep -qx 'land(W-1): landing record' && git -C '$WT' log -1 --skip=1 --format=%s | grep -q '^wip(W-1)' && grep -q '^## Landing' '$WT/ret.md'"
+WT="$(mk_wt)"; mkdir -p "$WT/unit"; DISP="$(mk_disp "$WT" '{"scope":["unit"]}')"; filled "$(dirname "$DISP")/ret.md"; echo o > "$WT/other.txt"; H1="$(git -C "$WT" rev-parse HEAD)"
+bash "$S/mc-land.sh" "$DISP" >/dev/null 2>&1
+check "mc-land limits leftovers to scope, usage says so (finding 17)" bash -c "[ \"\$(git -C '$WT' rev-parse HEAD)\" = '$H1' ] && git -C '$WT' status --porcelain | grep -q other.txt && bash '$S/mc-land.sh' 2>&1 | grep -q scope"
 
 # --- mc-dispatch.sh -------------------------------------------------------------
 P="$T/proj"; mkdir -p "$P/.claude/agents" "$T/home/.claude/agents"
