@@ -109,19 +109,18 @@ segments() {
   printf '%s%s\n' "$out" "$seg"
 }
 
-resolve() { realpath -m -- "$1" 2>/dev/null || printf '%s' "$1"; }
-
 # norm_dir DIR CWD: a -C argument as bash would pass it: one layer of matching
 # quotes stripped, a leading ~ expanded (unquoted only, as bash does), and a
-# relative path taken against the hook input's cwd.
+# relative path taken against the hook input's cwd. A drive-letter path (C:/x,
+# C:\x) is absolute; mc_norm_path turns it into /c/x under Git Bash.
 norm_dir() {
   local d="$1" cwd="$2" q=""
   if [ ${#d} -ge 2 ] && { [[ "$d" == \"*\" ]] || [[ "$d" == \'*\' ]]; }; then q=1; d="${d:1:${#d}-2}"; fi
   if [ -z "$q" ]; then
     case "$d" in "~") d="$HOME" ;; "~/"*) d="$HOME/${d#\~/}" ;; esac
   fi
-  case "$d" in /*) ;; *) [ -n "$cwd" ] && d="$cwd/$d" ;; esac
-  resolve "$d"
+  case "$d" in /*|[A-Za-z]:[/\\]*) ;; *) [ -n "$cwd" ] && d="$(mc_norm_path "$cwd")/$d" ;; esac
+  mc_norm_path "$d"
 }
 
 # bash_allowed CMD WORKTREE CWD. On a bare git outside the worktree sets
@@ -131,7 +130,7 @@ bash_allowed() {
   local seg wt="$2" cwd="$3" segs dir any=0 rwt
   local re='^[[:space:]]*git([[:space:]]+-C[[:space:]]+("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:]]+))?[[:space:]]+(add|commit|status|diff|log|rev-parse|show)([^A-Za-z0-9_]|$)'
   [ -n "$wt" ] || return 1
-  rwt="$(resolve "$wt")"
+  rwt="$(mc_norm_path "$wt")"
   if [ "$(outside_len "$1")" -gt "$MAX_CMD" ]; then
     DENY_NOTE=" This command is longer than $MAX_CMD bytes. Put a long message in git -C $wt commit -F - <<'EOF'."
     return 1
@@ -151,7 +150,7 @@ bash_allowed() {
     # Contract step 4: the repository is the worktree.
     if [ -n "$dir" ]; then
       [ "$(norm_dir "$dir" "$cwd")" = "$rwt" ] || return 1
-    elif [ -z "$cwd" ] || [ "$(resolve "$cwd")" != "$rwt" ]; then
+    elif [ -z "$cwd" ] || [ "$(mc_norm_path "$cwd")" != "$rwt" ]; then
       DENY_NOTE=" A git without -C runs in ${cwd:-an unknown directory}, not the worktree: use git -C $wt."
       return 1
     fi
@@ -163,11 +162,11 @@ bash_allowed() {
 path_allowed() {
   local p="$1" f rp
   [ -n "$p" ] || return 1
-  rp="$(resolve "$p")"
+  rp="$(mc_norm_path "$p")"
   for f in "$(mc_field return_file)" "$(mc_field tracker)"; do
     [ -n "$f" ] || continue
     [ "$p" = "$f" ] && return 0
-    [ "$rp" = "$(resolve "$f")" ] && return 0
+    [ "$rp" = "$(mc_norm_path "$f")" ] && return 0
   done
   return 1
 }

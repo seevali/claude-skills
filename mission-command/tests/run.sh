@@ -195,6 +195,26 @@ check "reserve allows a 2,100-byte -F - body (L-4b finding 2)" empty "$(pre_bash
 $LONG
 EOF")"
 
+# --- path normaliser (Git Bash: a fake cygpath on PATH) ---------------------------
+mkdir -p "$T/cyg"
+cat > "$T/cyg/cygpath" <<'EOF'
+#!/usr/bin/env bash
+[ "$1" = -u ] && shift
+p="${1//\\//}"
+case "$p" in [A-Za-z]:/*) p="/$(printf '%s' "${p:0:1}" | tr A-Z a-z)${p:2}" ;; esac
+printf '%s\n' "$p"
+EOF
+chmod +x "$T/cyg/cygpath"
+norm_cyg() { ( PATH="$T/cyg:$PATH"; . "$S/mc-hook-lib.sh"; mc_norm_path "$1" ); }
+check "mc_norm_path under cygpath: C:\\x\\y and C:/x/y become /c/x/y" bash -c '[ "$1" = /c/x/y ] && [ "$2" = /c/x/y ]' _ "$(norm_cyg 'C:\x\y')" "$(norm_cyg 'C:/x/y')"
+check "mc_norm_path without cygpath is realpath -m" [ "$(. "$S/mc-hook-lib.sh"; mc_norm_path /a/b/../c)" = /a/c ]
+CW="/c/Users/me/wt"; DC="$(mk_disp "$CW")"; TRC="$(mk_transcript 38 "$T/cyg.jsonl" "$DC")"
+check "reserve under cygpath: -C C:/Users/me/wt is the worktree /c/Users/me/wt" empty "$(PATH="$T/cyg:$PATH"; pre_bash "$TRC" "git -C C:/Users/me/wt status")"
+check "reserve under cygpath: cwd C:\\Users\\me\\wt is the worktree /c/Users/me/wt" empty "$(PATH="$T/cyg:$PATH"; pre_bash "$TRC" "git status" '{"cwd":"C:\\Users\\me\\wt"}')"
+check "reserve without cygpath: cwd C:\\Users\\me\\wt is not /c/Users/me/wt (control)" denied "$(pre_bash "$TRC" "git status" '{"cwd":"C:\\Users\\me\\wt"}')"
+PATH="$T/cyg:$PATH" bash "$S/mc-dispatch.sh" --unit W-C --agent none --cap 10 --worktree 'C:\Users\me\wt' --return "$T/rc/W-C.md" --out "$T/rc/W-C.json" >/dev/null 2>&1
+check "mc-dispatch under cygpath: --worktree C:\\Users\\me\\wt written as /c/Users/me/wt" jq -e '.worktree == "/c/Users/me/wt"' "$T/rc/W-C.json"
+
 # --- stop gate --------------------------------------------------------------------
 WT="$(mk_wt)"; DISP="$(mk_disp "$WT")"; RF="$(dirname "$DISP")/ret.md"; TR="$(mk_transcript 20)"
 filled "$RF"; echo new > "$WT/new.txt"

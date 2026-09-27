@@ -42,7 +42,7 @@ main() {
   [ -n "$MC_DISPATCH_FILE" ] || return 0
   mc_require_fields stop-gate || return 0
   local wt rf problems="" n st scope=()
-  wt="$(mc_field worktree)"; rf="$(mc_field return_file)"
+  wt="$(mc_norm_path "$(mc_field worktree)")"; rf="$(mc_norm_path "$(mc_field return_file)")"
   if [ "$(mc_landing)" = "commit" ]; then
     while IFS= read -r st; do [ -n "$st" ] && scope+=("$st"); done < <(mc_field scope)
     if st="$(git -C "$wt" status --porcelain -- "${scope[@]}" 2>/dev/null)"; then

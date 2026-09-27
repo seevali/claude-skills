@@ -6,6 +6,8 @@
 set -uo pipefail
 
 die() { printf 'mc-land: %s\n' "$*" >&2; exit 2; }
+# mc_norm_path (one path normaliser, cygpath-aware) comes from the hook library.
+. "$(dirname "$0")/mc-hook-lib.sh" || { printf '%s: cannot source mc-hook-lib.sh\n' "${0##*/}" >&2; exit 2; }
 usage="usage: mc-land.sh <dispatch.json>
   Commits the worktree's leftovers as wip(<unit>) (limited to the dispatch's
   \"scope\" paths when set; dirt outside the scope is left alone), runs \"gate\"
@@ -13,10 +15,10 @@ usage="usage: mc-land.sh <dispatch.json>
   file is inside the worktree, commits that as land(<unit>): landing record.
   Idempotent: when '## Landing' already exists it only prints the summary."
 [ $# -eq 1 ] || die "$usage"
-disp="$(realpath -m -- "$1")"
+disp="$(mc_norm_path "$1")"
 [ -f "$disp" ] || die "no dispatch file: $disp"
 f() { jq -r --arg f "$1" '.[$f] // empty | if type == "array" then .[] else . end' "$disp"; }
-unit="$(f unit)"; wt="$(f worktree)"; rf="$(f return_file)"; gate="$(f gate)"; cap="$(f cap)"
+unit="$(f unit)"; wt="$(mc_norm_path "$(f worktree)")"; rf="$(mc_norm_path "$(f return_file)")"; gate="$(f gate)"; cap="$(f cap)"
 landing="$(f landing)"; [ -n "$landing" ] || landing=commit
 scope=(); while IFS= read -r s; do [ -n "$s" ] && scope+=("$s"); done < <(f scope)
 [ -n "$unit" ] && [ -n "$wt" ] && [ -n "$rf" ] || die "dispatch lacks unit, worktree or return_file"
@@ -67,7 +69,7 @@ fi
 } >> "$rf"
 
 # A return file inside the worktree would leave it dirty again: commit the record.
-rwt="$(realpath -m -- "$wt")"; rrf="$(realpath -m -- "$rf")"
+rwt="$(mc_norm_path "$wt")"; rrf="$(mc_norm_path "$rf")"
 case "$rrf" in "$rwt"/*)
   git -C "$wt" add -- "$rrf" && git -C "$wt" commit -q -m "land($unit): landing record" -- "$rrf" \
     || printf 'mc-land: could not commit the landing record in %s\n' "$wt" >&2 ;;
