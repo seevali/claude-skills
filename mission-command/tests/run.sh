@@ -188,6 +188,14 @@ check "garbage stdin: exit 0, no output" bash -c "for h in mc-gauge mc-reserve m
 check "missing transcript: exit 0, no output" empty "$(post "$T/does-not-exist.jsonl")"
 check "missing dispatch file: inert" empty "$(pre_bash "$(mk_transcript 38 "$T/gone.jsonl" "$T/gone.dispatch.json")" "pnpm test")"
 
+# --- mc-hook.sh wrapper ---------------------------------------------------------
+WT="$(mk_wt)"; DISP="$(mk_disp "$WT")"; TR="$(mk_transcript 10)"
+B="$T/broken"; cp -r "$S" "$B"; printf '\nif then fi (\n' >> "$B/mc-reserve.sh"
+check "wrapper: broken target exits 0, no stdout, one errors.log line" bash -c "o=\$(printf '{}' | MC_HOOK_TMP='$T/wrap1' bash '$B/mc-hook.sh' reserve); rc=\$?; [ \$rc -eq 0 ] && [ -z \"\$o\" ] && [ \$(wc -l < '$T/wrap1/errors.log') -eq 1 ] && grep -q 'mc-reserve.sh: syntax error' '$T/wrap1/errors.log'"
+IN="$(jq -nc --arg tp "$TR" '{session_id:"wrap-g",transcript_path:$tp,hook_event_name:"PostToolUse",tool_name:"Bash",tool_input:{}}')"
+o="$(printf '%s' "$IN" | bash "$S/mc-hook.sh" gauge)"
+check "wrapper: passes stdin through, prints the gauge JSON" [ "$(ctx "$o")" = "[mc] turn 11 of 40. Reserve opens at turn 35." ]
+
 # --- mc-land.sh -----------------------------------------------------------------
 WT="$(mk_wt)"; DISP="$(mk_disp "$WT" '{"gate":"test -f base.txt"}')"; RF="$(dirname "$DISP")/ret.md"; filled "$RF"
 echo 'turns=41 cap=40 reserve_at=35 updated=x' > "$DISP.gauge"; echo left > "$WT/left.txt"
