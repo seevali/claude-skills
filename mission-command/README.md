@@ -12,7 +12,7 @@ When active, the skill makes Claude:
 
 - **Internalize your vision first** — cheap parallel readers over your docs and code, synthesized and played back, before anything is executed
 - **Design to your budget** — the cheap fleet shape is the default, not something you have to ask for; resumable plans, disk-based trackers, a per-phase model/effort matrix, a pre-launch shape estimate (agents × turns × context), and a cost ledger: every fleet run's measured cost against the shared pool, with no launch that would spend more than a third of what remains
-- **Cap the workers** — a worker lives at most ~40 turns / ~120K context (enforced by the harness, resumed by a fresh worker from a written note) and runs in a stripped environment: no CLAUDE.md hierarchy, no skill or plugin listings, no MCP servers, a tool allowlist, model and effort pinned — because cost grows with the square of an agent's lifetime and fixed per-turn overhead is a third of a fleet's bill
+- **Land the workers** — a worker's turn cap lives only in its agent definition; three hooks shipped with the skill give it a turn gauge on every tool result, a reserve in which only commit and the return file are allowed, and a stop gate that refuses an unlanded exit; when one caps anyway, `mc-land.sh` commits the leftovers and runs the gate, so the flagship never finishes a worker's last lines. Workers run stripped: no CLAUDE.md hierarchy, no skill or plugin listings, no MCP servers, a tool allowlist, model and effort pinned
 - **Spend the fleet where it counts** — deterministic gates (build, tests) before any refuter; one refute round by default, scoped to the diff; shared read-only provisioning (worktrees, built artifacts, package caches) so agents never rebuild the world; rulings that state facts and deletions rather than prose
 - **Pin the fleet** — fast tier reads, mid tier implements and verifies, flagship designs and adjudicates; sub-agents never choose or inherit their tier, and zero flagship tokens go to grunt work
 - **Discipline the conductor** — no shell work in the main loop, medium effort for orchestration, small context (one mission per session, low auto-compaction window, no extended-context variant), non-blocking delegation, surgical edits, no scope extras
@@ -41,6 +41,8 @@ cp -r mission-command ~/.claude/skills/mission-command   # global
 cp -r mission-command .claude/skills/mission-command     # project-level
 ```
 
+The fleet mechanics need `bash`, `jq` and `git`. After installing, copy `agents/mc-worker-*.md` into `~/.claude/agents/` (or the project's `.claude/agents/`); their hook commands point at `$HOME/.claude/skills/mission-command/scripts/`, so a per-project install edits that path. Claude Code runs a project agent's frontmatter hooks only after you accept the workspace trust dialog once for that folder.
+
 **Claude.ai** — zip the `mission-command` folder (folder at ZIP root) and upload it under Settings → Capabilities → Skills. Note: on claude.ai the *doctrine* loads, but the fleet mechanics (per-agent model pinning, headless worker loops) require Claude Code — the skill degrades to single-agent execution of the same moves.
 
 ## Usage
@@ -58,7 +60,13 @@ Or invoke it directly: `/mission-command`.
 ```
 mission-command/
 ├── SKILL.md      # The protocol: cost model + six phases + non-negotiables
-└── README.md     # This file
+├── README.md     # This file
+├── agents/       # Worker definitions with landing hooks
+├── scripts/      # The three hooks, mc-dispatch.sh, mc-land.sh, mc-run.sh
+├── references/
+│   └── landing.md  # The landing contract
+└── tests/
+    └── run.sh
 ```
 
 ## Background
