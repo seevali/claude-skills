@@ -76,13 +76,26 @@ mc_dispatch() {
   return 0
 }
 
-# Model calls so far: distinct message.id on type=="assistant" lines, one jq
-# pass. Lines that do not parse (a half-written last line) are skipped.
-mc_turns() {
+# Model calls completed so far: distinct message.id on type=="assistant"
+# lines, one jq pass. Lines that do not parse (a half-written last line) are
+# skipped. The transcript lags the current turn by one message (its own line
+# is written after its tools finish), so this raw count is one less than the
+# turn the model is actually in; use mc_turns for that.
+mc_assistant_ids() {
   local tr
   tr="$(mc_transcript)"
   [ -n "$tr" ] && [ -f "$tr" ] || return 0
   jq -rRn '[inputs | fromjson? | select(type == "object" and .type == "assistant") | .message.id // empty] | unique | length' "$tr" 2>/dev/null || true
+}
+
+# The turn the model is in right now: distinct assistant ids + 1 (the lag
+# fact in references/landing.md). This is the number every hook reasons
+# about and the number written to the gauge file's turns= field.
+mc_turns() {
+  local n
+  n="$(mc_assistant_ids)"
+  case "$n" in ''|*[!0-9]*) return 0 ;; esac
+  printf '%s' $(( n + 1 ))
 }
 
 # A dispatch field as text (arrays one element per line); empty when absent.

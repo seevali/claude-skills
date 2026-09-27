@@ -87,26 +87,26 @@ ctx() { printf '%s' "$1" | jq -er '.hookSpecificOutput | select(.hookEventName =
 # --- gauge ----------------------------------------------------------------------
 WT="$(mk_wt)"; DISP="$(mk_disp "$WT")"; RF="$(dirname "$DISP")/ret.md"; filled "$RF"
 o="$(post "$(mk_transcript 10)")"
-check "gauge band 1 text" [ "$(ctx "$o")" = "[mc] turn 10 of 40. Reserve opens at turn 35." ]
-check "gauge file line" grep -qE '^turns=10 cap=40 reserve_at=35 updated=[0-9T:-]+Z$' "$DISP.gauge"
+check "gauge band 1 text" [ "$(ctx "$o")" = "[mc] turn 11 of 40. Reserve opens at turn 35." ]
+check "gauge file line" grep -qE '^turns=11 cap=40 reserve_at=35 updated=[0-9T:-]+Z$' "$DISP.gauge"
 check "gauge counts ids not lines (10 ids, 25 assistant lines)" [ "$(grep -c '"assistant"' "$T/transcript.jsonl")" -eq 25 ]
 o="$(post "$(mk_transcript 33)")"
-check "gauge band 2 text" [ "$(ctx "$o")" = "[mc] turn 33 of 40. Reserve opens at turn 35: land now — commit what is on disk, then fill '## Return' in $RF." ]
-o="$(post "$(mk_transcript 32)")"
-check "gauge band 2 starts at S-3" has "$(ctx "$o")" "land now"
+check "gauge band 2 text" [ "$(ctx "$o")" = "[mc] turn 34 of 40. Reserve opens at turn 35: land now — commit what is on disk, then fill '## Return' in $RF." ]
 o="$(post "$(mk_transcript 31)")"
+check "gauge band 2 starts at S-3" has "$(ctx "$o")" "land now"
+o="$(post "$(mk_transcript 30)")"
 check "gauge band 1 ends at S-4" hasnt "$(ctx "$o")" "land now"
-o="$(post "$(mk_transcript 35)")"
+o="$(post "$(mk_transcript 34)")"
 check "gauge band 3 text" [ "$(ctx "$o")" = "[mc] RESERVE: turn 35 of 40. Only git add/commit/status/diff and the return file are allowed. Commit, fill '## Return', stop." ]
 o="$(post "$(mk_transcript 12 "$T/arr.jsonl" "$DISP" array)")"
-check "gauge with array prompt content" has "$(ctx "$o")" "turn 12 of 40"
-check "gauge keeps event lines" bash -c "echo 'event: x kept' >> '$DISP.gauge'; printf '%s' '$(jq -nc --arg tp "$T/arr.jsonl" '{session_id:"g-ev",transcript_path:$tp,hook_event_name:"PostToolUse",tool_name:"Bash",tool_input:{}}')' | bash '$S/mc-gauge.sh' >/dev/null; head -1 '$DISP.gauge' | grep -q '^turns=12' && grep -q '^event: x kept' '$DISP.gauge'"
+check "gauge with array prompt content" has "$(ctx "$o")" "turn 13 of 40"
+check "gauge keeps event lines" bash -c "echo 'event: x kept' >> '$DISP.gauge'; printf '%s' '$(jq -nc --arg tp "$T/arr.jsonl" '{session_id:"g-ev",transcript_path:$tp,hook_event_name:"PostToolUse",tool_name:"Bash",tool_input:{}}')' | bash '$S/mc-gauge.sh' >/dev/null; head -1 '$DISP.gauge' | grep -q '^turns=13' && grep -q '^event: x kept' '$DISP.gauge'"
 mkdir -p "$T/main"; mk_transcript 7 "$T/main/sess/subagents/agent-a1.jsonl" "$DISP" >/dev/null
 o="$(hook PostToolUse mc-gauge.sh "$T/main/sess.jsonl" Bash '{}' '{"agent_id":"a1"}')"
-check "gauge finds in-session transcript via agent_id" has "$(ctx "$o")" "turn 7 of 40"
+check "gauge finds in-session transcript via agent_id" has "$(ctx "$o")" "turn 8 of 40"
 
 # --- reserve --------------------------------------------------------------------
-TR="$(mk_transcript 34)"
+TR="$(mk_transcript 33)"
 check "reserve silent before S" empty "$(pre_bash "$TR" "pnpm test")"
 TR="$(mk_transcript 36)"
 for c in "git add -A" "git commit -m 'wip'" "git status" "git diff --stat" "git -C $WT log --oneline -3" "git rev-parse HEAD" "git show HEAD"; do
@@ -119,7 +119,7 @@ body && more
 EOF
 )\"")"
 check "reserve denies pnpm test" denied "$(pre_bash "$TR" "pnpm test")"
-check "reserve denial reason text" has "$(pre_bash "$TR" "pnpm test")" "[mc] Reserve: turn 36 of 40. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of $RF. Commit what is on disk, fill '## Return', then stop."
+check "reserve denial reason text" has "$(pre_bash "$TR" "pnpm test")" "[mc] Reserve: turn 37 of 40. Only landing actions are allowed: git add/commit/status/diff, and Read/Write/Edit of $RF. Commit what is on disk, fill '## Return', then stop."
 check "reserve denies git add && pnpm test" denied "$(pre_bash "$TR" "git add -A && pnpm test")"
 check "reserve denies git status; rm" denied "$(pre_bash "$TR" "git status; rm -rf src")"
 check "reserve denies git push" denied "$(pre_bash "$TR" "git push")"
