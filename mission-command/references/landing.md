@@ -88,7 +88,7 @@ Only that first line is rewritten on each call. Any hook event worth recording (
 
 All three are shell scripts under `scripts/`, read hook JSON on stdin, need only `bash`, `jq`, `git`, and must finish in well under 100 ms on an 800 KB transcript. On any internal error they exit 0 with no output (stderr included: every helper call is redirected) and append `event: error <what>` to the gauge file if the dispatch is known; when `jq` itself is missing they append one line to `${MC_HOOK_TMP:-/tmp/mc-hooks}/errors.log` instead, so an unguarded fleet is at least visible. A hook must never fail a tool call by accident. `MC_HOOKS_OFF=1` in the environment makes all three inert.
 
-Shared library `scripts/mc-hook-lib.sh` (sourced) provides: `mc_read_input` (stdin into `$MC_IN`), `mc_key`, `mc_transcript` (per the facts above), `mc_dispatch` (cached discovery), `mc_turns` (distinct assistant message ids in the transcript), `mc_field <name>` (dispatch field), `mc_gauge_write`, `mc_gauge_event`.
+Shared library `scripts/mc-hook-lib.sh` (sourced) provides: `mc_read_input` (stdin into `$MC_IN`), `mc_key`, `mc_transcript` (per the facts above), `mc_dispatch` (cached discovery), `mc_turns` (distinct assistant message ids in the transcript), `mc_field <name>` (dispatch field), `mc_gauge_write`, `mc_gauge_event`, and `mc_norm_path` (the one path normaliser: a Windows-form path goes through `cygpath -u` when `cygpath` exists, as under Git Bash, then every path goes through `realpath -m`; every path the hooks and the conductor scripts compare or join passes through it, and the conductor scripts source the library for it).
 
 ### 1. Gauge (`mc-gauge.sh`, PostToolUse, matcher `""`)
 
