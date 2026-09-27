@@ -43,6 +43,21 @@ cp -r mission-command .claude/skills/mission-command     # project-level
 
 The fleet mechanics need `bash`, `jq` and `git`. After installing, copy `agents/mc-worker-*.md` into `~/.claude/agents/` (or the project's `.claude/agents/`); their hook commands point at `$HOME/.claude/skills/mission-command/scripts/`, so a per-project install edits that path. Claude Code runs a project agent's frontmatter hooks only after you accept the workspace trust dialog once for that folder.
 
+**Windows** — Git for Windows is required: its Git Bash runs the hooks. The PowerShell fallback is not supported by this skill, and the `shell: bash` on every hook entry in `agents/mc-worker-*.md` makes a missing Git Bash fail visibly instead of falling through to PowerShell. Git for Windows does not ship `jq`: install it with `winget install jqlang.jq`. Clone with LF line endings: the repo's `.gitattributes` handles it (a CRLF script fails to parse, and the hooks go inert); if a clone predates it, run `git add --renormalize .` in it. WSL 2 needs none of this.
+
+**Proving it on a Windows box** — from Git Bash, at the root of the repo that holds `mission-command/`:
+
+```bash
+git config --get core.autocrlf
+grep -lU $'\r' mission-command/scripts/*.sh mission-command/tests/*.sh mission-command/agents/*.md
+command -v jq realpath git bash claude cygpath
+bash mission-command/tests/run.sh
+bash mission-command/scripts/mc-dispatch.sh --unit W-TEST --agent mc-worker-opus --worktree "$(pwd)" --return /tmp/ret.md --out /tmp/W-TEST.dispatch.json --cap 10
+bash mission-command/scripts/mc-run.sh --dry-run /tmp/W-TEST.dispatch.json mc-worker-opus /tmp/ret.md
+```
+
+The `grep` prints nothing (no CRLF in the working tree), `command -v` prints six paths, the suite ends `failed 0`, and the dry run prints a `cd … && claude -p …` line whose paths are all in POSIX form (`/c/…`, `/tmp/…`), never `C:\…`. `mc-run.sh` reads the definition from `~/.claude/agents/`, so copy `agents/mc-worker-opus.md` there first; the brief argument only has to exist, so the return skeleton serves.
+
 **Claude.ai** — zip the `mission-command` folder (folder at ZIP root) and upload it under Settings → Capabilities → Skills. Note: on claude.ai the *doctrine* loads, but the fleet mechanics (per-agent model pinning, headless worker loops) require Claude Code — the skill degrades to single-agent execution of the same moves.
 
 ## Usage
