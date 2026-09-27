@@ -20,11 +20,15 @@ unit="$(f unit)"; wt="$(f worktree)"; cap="$(f cap)"; mode="$(f permission_mode)
 [ -n "$unit" ] && [ -n "$wt" ] && [ -n "$cap" ] || die "dispatch lacks unit, worktree or cap"
 [ -n "$mode" ] || mode=bypassPermissions
 
-def=""
-for d in "$PWD/.claude/agents/$agent.md" "$HOME/.claude/agents/$agent.md"; do
-  [ -f "$d" ] && { def="$d"; break; }
-done
-[ -n "$def" ] || die "no agent definition for '$agent' in ./.claude/agents or ~/.claude/agents"
+# A headless run starts in the worktree and sees only global definitions
+# (references/landing.md, "Facts"), so ~/.claude/agents is the only home.
+def="$HOME/.claude/agents/$agent.md"
+if [ ! -f "$def" ]; then
+  for d in "$PWD/.claude/agents/$agent.md" "$wt/.claude/agents/$agent.md"; do
+    [ -f "$d" ] && die "'$agent' is defined only at $d; a headless run cannot see project definitions — copy it to ~/.claude/agents/$agent.md"
+  done
+  die "no agent definition for '$agent' at ~/.claude/agents/$agent.md"
+fi
 fm() { awk -v k="$1" 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} index($0, k":")==1{sub(/^[^:]*:[ \t]*/,""); gsub(/[ \t"'"'"']/,""); print; exit}' "$def"; }
 model="$(fm model)"; effort="$(fm effort)"
 
