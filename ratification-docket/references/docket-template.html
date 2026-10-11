@@ -243,9 +243,22 @@
   // ---------- state ----------
   const STORAGE_KEY = 'ratification-docket-v1'; // change per docket so devices do not mix answers
   let state = { d: {}, updatedAt: null };
-  let docRef = null, saveTimer = null, lastLocalWrite = null;
+  let docRef = null, saveTimer = null, lastLocalWrite = null, writing = false, dirty = false;
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-  function ent(id) { if (!state.d[id]) state.d[id] = {}; return state.d[id]; }
+  // Snapshots the page store delivers are frozen; the page must never keep one as its state (a frozen entry throws on
+  // the next click in strict mode). clone() makes a plain copy; adopt() merges a remote body card by card over the
+  // local state, so an answer this device holds but the store does not is never dropped.
+  function clone(o) { try { return JSON.parse(JSON.stringify(o)); } catch (e) { return {}; } }
+  function adopt(remote) {
+    const d = clone(state.d || {}), rd = clone((remote && remote.d) || {});
+    Object.keys(rd).forEach(id => { d[id] = Object.assign({}, d[id] || {}, rd[id]); });
+    state = { d, updatedAt: (remote && remote.updatedAt) || state.updatedAt || null };
+  }
+  function ent(id) {
+    if (Object.isFrozen(state) || Object.isFrozen(state.d)) state = { d: clone(state.d || {}), updatedAt: state.updatedAt || null };
+    if (!state.d[id] || Object.isFrozen(state.d[id])) state.d[id] = clone(state.d[id] || {});
+    return state.d[id];
+  }
   function recKey(d) { const o = d.opts.find(x => x.rec); return o ? o.k : null; }
 
   // ---------- render ----------
@@ -340,15 +353,21 @@
     writeLocal();
     if (!docRef) { setSave('local', 'Saved on this device only'); return; }
     setSave('busy', 'Saving…'); clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      state.updatedAt = new Date().toISOString(); lastLocalWrite = state.updatedAt; writeLocal();
-      try { await docRef.set({ d: state.d, updatedAt: state.updatedAt, version: 2 }); setSave('ok', 'Saved to the page · ' + new Date(state.updatedAt).toLocaleTimeString()); }
-      catch (e) { if (e && e.code === 'unavailable') { setTimeout(save, 800 + Math.random() * 800); return; } setSave('local', 'Could not save to the page (' + (e && e.code ? e.code : 'error') + '); kept on this device'); }
-    }, 600);
+    saveTimer = setTimeout(flush, 600);
+  }
+  // One write at a time per document: a save that arrives while one is in flight runs after it, with the latest state.
+  async function flush() {
+    if (!docRef) return;
+    if (writing) { dirty = true; return; }
+    writing = true;
+    state.updatedAt = new Date().toISOString(); lastLocalWrite = state.updatedAt; writeLocal();
+    try { await docRef.set({ d: clone(state.d), updatedAt: state.updatedAt, version: 2 }); setSave('ok', 'Saved to the page · ' + new Date(state.updatedAt).toLocaleTimeString()); }
+    catch (e) { if (e && e.code === 'unavailable') { dirty = true; await new Promise(r => setTimeout(r, 800 + Math.random() * 800)); } else setSave('local', 'Could not save to the page (' + (e && e.code ? e.code : 'error') + '); kept on this device'); }
+    finally { writing = false; if (dirty) { dirty = false; flush(); } }
   }
   async function connect() {
     const local = readLocal();
-    if (local && local.d) { state = local; paintAll(); }
+    if (local && local.d) { state = { d: clone(local.d), updatedAt: local.updatedAt || null }; paintAll(); }
     let ns = null;
     try { ns = (window.claude && typeof window.claude.use === 'function') ? await window.claude.use('db') : null; } catch (e) { ns = null; }
     if (!ns) { setSave('local', 'Page store unavailable; answers stay on this device'); return; }
@@ -357,7 +376,7 @@
     docRef.onSnapshot(snap => {
       if (snap.exists) {
         const r = snap.data(); const newer = !state.updatedAt || (r.updatedAt && r.updatedAt > state.updatedAt);
-        if (first ? (newer || !local) : (!snap.metadata.hasPendingWrites && r.updatedAt !== lastLocalWrite && newer)) { state = { d: r.d || {}, updatedAt: r.updatedAt || null }; writeLocal(); paintAll(); }
+        if (first ? (newer || !local) : (!snap.metadata.hasPendingWrites && r.updatedAt !== lastLocalWrite && newer)) { adopt(r); writeLocal(); paintAll(); }
         else if (first && local && local.updatedAt && !newer) { save(); }
       } else if (first && local && Object.keys(local.d || {}).length) { save(); }
       if (first) { first = false; if (!snap.metadata.hasPendingWrites) setSave('ok', snap.exists ? 'Saved to the page' : 'Connected to the page store'); }
