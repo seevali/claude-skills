@@ -60,6 +60,14 @@ Claude reads the answers from the page, writes the decision record, and updates 
 The page requires the artifact `db` capability to save answers; without it the page keeps answers on the device and shows a
 copy-out block instead.
 
+## Walkthrough
+
+[The Ratification Docket: Let the Grill Ask, Let One Page Answer](https://seevali.dev/blog/2026-10-14-the-ratification-docket/)
+follows one fictional session end to end: a postmortem, a proposal and a set of spike notes full of proposed items become one
+page of cards, with screenshots of the docket and the decision record it writes back. It also shows the pairing with Matt
+Pocock's [grill-with-docs](https://www.aihero.dev/skills-grill-with-docs), where the grill decides what must be asked and the
+page is where you answer.
+
 ## Files
 
 - `SKILL.md` — the protocol Claude follows
