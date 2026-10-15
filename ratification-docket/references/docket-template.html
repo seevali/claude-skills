@@ -8,6 +8,8 @@
     --must: #6B4C9A; --must-soft: #EAE3F4;
     --rec: #2E7D4F; --rec-soft: #DDF0E4;
     --alt: #A6690F; --alt-soft: #F8EBD2;
+    --ok: #2F6DB5; --ok-soft: #DCE8F7;
+    --err: #B3261E; --err-soft: #F9DEDC;
     --focus: #0F6E6B;
     --shadow: 0 1px 2px rgba(27,36,48,.06), 0 8px 24px -12px rgba(27,36,48,.18);
     color-scheme: light;
@@ -20,6 +22,8 @@
       --must: #B79BE0; --must-soft: #2C2340;
       --rec: #6CC48F; --rec-soft: #1B3627;
       --alt: #E2B25A; --alt-soft: #3B2E14;
+    --ok: #7FB0E8; --ok-soft: #182B40;
+    --err: #F2B8B5; --err-soft: #4A1F1D;
       --focus: #3FB5B0;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
       color-scheme: dark;
@@ -32,6 +36,8 @@
     --must: #B79BE0; --must-soft: #2C2340;
     --rec: #6CC48F; --rec-soft: #1B3627;
     --alt: #E2B25A; --alt-soft: #3B2E14;
+    --ok: #7FB0E8; --ok-soft: #182B40;
+    --err: #F2B8B5; --err-soft: #4A1F1D;
     --focus: #3FB5B0;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
     color-scheme: dark;
@@ -60,10 +66,10 @@
   .prog-lab { color: var(--muted); font-size: 14px; }
   .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; display: flex; }
   .bar > i { display: block; height: 100%; }
-  .b-rec { background: var(--rec); } .b-alt { background: var(--alt); }
+  .b-rec { background: var(--rec); } .b-ok { background: var(--ok); } .b-alt { background: var(--alt); }
   .legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
   .legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-  .legend .l-rec::before { background: var(--rec); } .legend .l-alt::before { background: var(--alt); }
+  .legend .l-rec::before { background: var(--rec); } .legend .l-ok::before { background: var(--ok); } .legend .l-alt::before { background: var(--alt); }
   .save-state { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; min-height: 20px; }
   .save-state .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
   .save-state.ok .dot { background: var(--rec); } .save-state.busy .dot { background: var(--alt); } .save-state.local .dot { background: var(--must); }
@@ -100,7 +106,11 @@
   .entries { display: grid; gap: 18px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 20px 22px 22px; display: grid; gap: 14px; scroll-margin-top: 20px; }
   .card[data-state="rec"] { border-left: 4px solid var(--rec); }
+  .card[data-state="ok"] { border-left: 4px solid var(--ok); }
   .card[data-state="alt"] { border-left: 4px solid var(--alt); }
+  .build-error { background: var(--err-soft); border: 1px solid var(--err); border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; display: grid; gap: 4px; }
+  .build-error b { color: var(--err); }
+  .lk { display: inline-block; min-width: 1.5em; text-align: center; font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; margin-right: 8px; vertical-align: 1px; }
   .card-head { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; align-items: start; }
   .card-head .num { font-family: "Literata", Georgia, serif; font-size: 28px; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; padding-top: 2px; }
   .card-head h3 { font-size: 21px; line-height: 1.25; }
@@ -112,6 +122,8 @@
   .recline > i { display: block; border-radius: 2px; background: var(--rec); }
   .recline .lab { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--rec); font-weight: 600; margin-bottom: 2px; }
   .recline p { margin: 0; }
+  .recline .pick { font-weight: 600; margin-bottom: 2px; }
+  .recline.none > i { background: var(--muted); } .recline.none .lab { color: var(--muted); }
 
   .opts { display: grid; gap: 8px; max-width: 76ch; }
   .opts-lab { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
@@ -120,10 +132,12 @@
   .opt input { margin: 4px 0 0; accent-color: var(--accent); }
   .opt .t { font-weight: 600; }
   .opt .t .tag { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--rec); margin-left: 8px; font-weight: 600; }
+  .opt .t .tag.ok { color: var(--ok); }
   .opt .gc { font-size: 14px; color: var(--muted); margin-top: 2px; }
   .opt .gc b { color: var(--ink); font-weight: 600; }
   .opt.on { border-color: var(--accent); background: var(--accent-soft); }
   .opt.on.is-rec { border-color: var(--rec); background: var(--rec-soft); }
+  .opt.on.is-ok { border-color: var(--ok); background: var(--ok-soft); }
   .opt.on.is-alt { border-color: var(--alt); background: var(--alt-soft); }
 
   .subs { display: grid; gap: 12px; max-width: 76ch; border-top: 1px dashed var(--line); padding-top: 12px; }
@@ -136,6 +150,7 @@
   .chip:hover { background: var(--surface-2); }
   .chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
   .chip.on.is-rec { border-color: var(--rec); background: var(--rec-soft); color: var(--rec); }
+  .chip.on.is-ok { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
   .chip .tag { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; margin-left: 6px; opacity: .8; }
   .note { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); padding: 6px 10px; font: inherit; font-size: 14px; width: 100%; max-width: 60ch; }
   .note::placeholder, .whybox::placeholder { color: var(--muted); opacity: .8; }
@@ -164,8 +179,8 @@
       <div class="rail-title">Decisions made</div>
       <div class="progress">
         <div class="prog-row"><span class="prog-big" id="p-count">0</span><span class="prog-lab">of <span id="p-total">0</span></span></div>
-        <div class="bar" id="p-bar"><i class="b-rec" style="width:0"></i><i class="b-alt" style="width:0"></i></div>
-        <div class="legend"><span class="l-rec">Took the recommendation <b id="c-rec">0</b></span><span class="l-alt">Went another way <b id="c-alt">0</b></span></div>
+        <div class="bar" id="p-bar"><i class="b-rec" style="width:0"></i><i class="b-ok" style="width:0"></i><i class="b-alt" style="width:0"></i></div>
+        <div class="legend"><span class="l-rec">Took the recommendation <b id="c-rec">0</b></span><span class="l-ok">Took an acceptable option <b id="c-ok">0</b></span><span class="l-alt">Went another way <b id="c-alt">0</b></span></div>
         <div class="save-state" id="save-state"><span class="dot"></span><span id="save-text">Connecting to the page store…</span></div>
       </div>
     </div>
@@ -187,13 +202,14 @@
     <header class="masthead">
       <div class="eyebrow">PROJECT · ratification · YYYY-MM-DD</div>
       <h1>Ratification Docket</h1>
-      <p class="lede">N decisions, each written to be made from this page alone. Every card says what the decision is about, what each choice gets you and costs you, and what I recommend. Pick one, add a line of why if you want to. <b>Skip a card and its stated default applies.</b> The cards marked "cannot be skipped" are the ones where the sources contradict each other or the default is not a real option. Answers save to this page.</p>
+      <p class="lede">N decisions, each written to be made from this page alone. Every card says what the decision is about, what each lettered choice gets you and costs you, and which letter I recommend; a choice marked acceptable is one I would not argue with. Pick one, add a line of why if you want to. <b>Skip a card and its stated default applies.</b> The cards marked "cannot be skipped" are the ones where the sources contradict each other or the default is not a real option. Answers save to this page.</p>
       <div class="terms">
         <span class="k">Six terms, once</span>
         <div><b>Term one</b>: its plain definition. <b>Term two</b>: its plain definition. (Define at most six project terms here; every other term is defined inline on the card that uses it.)</div>
         <div><b>Ground truth today</b>: the one or two facts the rulings depend on (what has started, what exists, which dates have passed).</div>
       </div>
     </header>
+    <div id="build-error" class="build-error" hidden></div>
     <div id="parts"></div>
     <section class="export" id="export">
       <h2>The answer block</h2>
@@ -217,8 +233,12 @@
   //   must: true       — pinned in the rail as "cannot be skipped" (sources contradict, or the default is not a real option)
   //   q                — the plain question (card title)
   //   about: [html…]   — two or three sentences of context; define every term inline; no document ids in the body
-  //   opts: [{k, t, gets, costs, rec:true}] — the choices; exactly one may carry rec:true; gets/costs are plain consequences
-  //   rec              — the recommendation in one or two sentences, or "No recommendation; it is a commercial call."
+  //   opts: [{k, t, gets, costs, rec:true, ok:true}] — the choices, lettered A, B, C on the page in this order. At most one carries
+  //                      rec:true (the recommendation); any number may carry ok:true (acceptable: choosing it is not a departure);
+  //                      never both on one option. gets/costs are plain consequences.
+  //   rec              — WHY the recommended option, in one or two sentences. The page names the option's letter and title itself,
+  //                      so never write "Option c" here. With no rec:true option this is the reason there is none
+  //                      ("A commercial call; only you can weigh it.").
   //   subs: [{k, q, why, opts:[{k,t,rec}], note:true}] — sub-questions where the sources silently disagree; note:true adds a free-text box
   //   dflt             — what happens if the card is skipped, in plain words
   //   trace            — the document ids, section numbers and finding labels this card came from (collapsed on the page)
@@ -228,15 +248,15 @@
         'One sentence on what both plans keep unchanged.'],
       opts: [
         { k: 'a', t: 'Plan A, with the calls below', rec: true, gets: 'What the owner gets.', costs: 'What it costs them.' },
-        { k: 'b', t: 'Plan B as written', gets: 'What the owner gets.', costs: 'What it costs them.' } ],
-      rec: 'Plan A. One sentence of why.',
+        { k: 'b', t: 'Plan B as written', ok: true, gets: 'What the owner gets.', costs: 'What it costs them.' } ],
+      rec: 'One sentence of why A over B.',
       subs: [ { k: 'sub1', q: 'A point on which the two sources silently disagree?', why: 'What each source says, in one line each.', opts: [ { k: 'x', t: 'Do it the first way', rec: true }, { k: 'y', t: 'Do it the second way' } ] } ],
       dflt: 'Plan B stands; nothing ships.',
       trace: 'Report P-1; record §2; tracker OPEN-5(c).' },
     '2': { q: 'A yes-or-no decision?',
       about: ['Two or three sentences of context.'],
       opts: [ { k: 'yes', t: 'Yes', rec: true, gets: 'Consequence.', costs: 'Cost.' }, { k: 'no', t: 'No', gets: 'Consequence.', costs: 'Cost.' } ],
-      rec: 'Yes.',
+      rec: 'One sentence of why.',
       dflt: 'No.', trace: 'Report P-6.' },
   };
 
@@ -260,11 +280,31 @@
     return state.d[id];
   }
   function recKey(d) { const o = d.opts.find(x => x.rec); return o ? o.k : null; }
+  function okKeys(d) { return d.opts.filter(x => x.ok).map(x => x.k); }
+  function letter(i) { return String.fromCharCode(65 + i); }
+  // How a pick relates to the recommendation: 'rec' (took it), 'ok' (an acceptable option), 'alt' (went another way), '' (no pick).
+  function pickState(d, k) { return !k ? '' : k === recKey(d) ? 'rec' : okKeys(d).includes(k) ? 'ok' : 'alt'; }
+  // Two recommended options on one card, or one option marked both recommended and acceptable, is a build error. It is shown
+  // at the top of the page for whoever builds the docket, instead of the page silently taking the first marker.
+  function validate() {
+    const errs = [];
+    Object.keys(D).forEach(id => {
+      const d = D[id], recs = d.opts.filter(x => x.rec), both = d.opts.filter(x => x.rec && x.ok), keys = d.opts.map(x => x.k);
+      if (recs.length > 1) errs.push(`Card ${id}: ${recs.length} options carry rec:true; at most one may.`);
+      if (both.length) errs.push(`Card ${id}: an option carries both rec:true and ok:true.`);
+      if (new Set(keys).size !== keys.length) errs.push(`Card ${id}: duplicate option keys.`);
+      if (!recs.length && !d.rec) errs.push(`Card ${id}: no recommended option and no reason given in rec.`);
+    });
+    return errs;
+  }
 
   // ---------- render ----------
   function render() {
     const root = document.getElementById('parts'), nav = document.getElementById('sections');
     root.innerHTML = ''; nav.innerHTML = '';
+    const errs = validate(), eb = document.getElementById('build-error');
+    eb.hidden = !errs.length; eb.innerHTML = errs.length ? `<b>This docket has a build error; fix the data before sending it.</b>${errs.map(e => `<span>${esc(e)}</span>`).join('')}` : '';
+    errs.forEach(e => console.error('docket: ' + e));
     PARTS.forEach(p => {
       const sec = document.createElement('section'); sec.className = 'part'; sec.id = 'part-' + p.letter;
       sec.innerHTML = `<header><span class="letter">${p.letter}</span><h2>${esc(p.title)}</h2><p>${esc(p.blurb)}</p></header><div class="entries"></div>`;
@@ -282,14 +322,17 @@
   function short(t) { return t.length > 44 ? t.slice(0, 42).replace(/\s+\S*$/, '') + '…' : t; }
 
   function card(id) {
-    const d = D[id]; const rk = recKey(d);
+    const d = D[id]; const ri = d.opts.findIndex(x => x.rec);
+    const recline = ri >= 0
+      ? `<div class="recline"><i></i><div><div class="lab">My recommendation</div><p class="pick"><span class="lk">${letter(ri)}</span>${esc(d.opts[ri].t)}</p>${d.rec ? `<p>${esc(d.rec)}</p>` : ''}</div></div>`
+      : `<div class="recline none"><i></i><div><div class="lab">No recommendation</div><p>${esc(d.rec || 'Your call.')}</p></div></div>`;
     const art = document.createElement('article'); art.className = 'card'; art.id = 'd-' + id; art.dataset.id = id;
-    const opts = d.opts.map(o => `<label class="opt ${o.k === rk ? 'is-rec' : 'is-alt'}" data-k="${esc(o.k)}"><input type="radio" name="d${id}" value="${esc(o.k)}"><div><div class="t">${esc(o.t)}${o.rec ? '<span class="tag">recommended</span>' : ''}</div>${(o.gets || o.costs) ? `<div class="gc">${o.gets ? '<b>Gets:</b> ' + esc(o.gets) + ' ' : ''}${o.costs ? '<b>Costs:</b> ' + esc(o.costs) : ''}</div>` : ''}</div></label>`).join('');
-    const subs = d.subs && d.subs.length ? `<div class="subs"><span class="subs-lab">Settle with it</span>${d.subs.map(s => `<div class="sub" data-sub="${esc(s.k)}"><div class="q">${esc(s.q)}</div>${s.why ? `<div class="why">${esc(s.why)}</div>` : ''}${s.opts.length ? `<div class="chips">${s.opts.map(o => `<button type="button" class="chip ${o.rec ? 'is-rec' : ''}" data-k="${esc(o.k)}">${esc(o.t)}${o.rec ? '<span class="tag">rec</span>' : ''}</button>`).join('')}</div>` : ''}${s.note ? `<input class="note" data-note="${esc(s.k)}" placeholder="Write it here">` : ''}</div>`).join('')}</div>` : '';
+    const opts = d.opts.map((o, i) => `<label class="opt is-${pickState(d, o.k)}" data-k="${esc(o.k)}"><input type="radio" name="d${id}" value="${esc(o.k)}"><div><div class="t"><span class="lk">${letter(i)}</span>${esc(o.t)}${o.rec ? '<span class="tag">recommended</span>' : o.ok ? '<span class="tag ok">acceptable</span>' : ''}</div>${(o.gets || o.costs) ? `<div class="gc">${o.gets ? '<b>Gets:</b> ' + esc(o.gets) + ' ' : ''}${o.costs ? '<b>Costs:</b> ' + esc(o.costs) : ''}</div>` : ''}</div></label>`).join('');
+    const subs = d.subs && d.subs.length ? `<div class="subs"><span class="subs-lab">Settle with it</span>${d.subs.map(s => `<div class="sub" data-sub="${esc(s.k)}"><div class="q">${esc(s.q)}</div>${s.why ? `<div class="why">${esc(s.why)}</div>` : ''}${s.opts.length ? `<div class="chips">${s.opts.map(o => `<button type="button" class="chip ${o.rec ? 'is-rec' : o.ok ? 'is-ok' : ''}" data-k="${esc(o.k)}">${esc(o.t)}${o.rec ? '<span class="tag">rec</span>' : o.ok ? '<span class="tag">ok</span>' : ''}</button>`).join('')}</div>` : ''}${s.note ? `<input class="note" data-note="${esc(s.k)}" placeholder="Write it here">` : ''}</div>`).join('')}</div>` : '';
     art.innerHTML = `
       <header class="card-head"><span class="num">${id}</span><h3>${esc(d.q)}</h3>${d.must ? '<span class="must">Cannot be skipped</span>' : ''}</header>
       <div class="about">${d.about.map(p => `<p>${p}</p>`).join('')}</div>
-      <div class="recline"><i></i><div><div class="lab">My recommendation</div><p>${esc(d.rec)}</p></div></div>
+      ${recline}
       <div class="opts"><span class="opts-lab">Your call</span>${opts}</div>
       ${subs}
       <div class="ruling">
@@ -309,9 +352,9 @@
   function autosize(t) { t.style.height = 'auto'; t.style.height = Math.max(42, t.scrollHeight) + 'px'; }
 
   function paint(id) {
-    const d = D[id], e = state.d[id] || {}, rk = recKey(d);
+    const d = D[id], e = state.d[id] || {};
     const art = document.getElementById('d-' + id);
-    art.dataset.state = e.opt ? (e.opt === rk ? 'rec' : 'alt') : '';
+    art.dataset.state = pickState(d, e.opt);
     art.querySelectorAll('.opt').forEach(l => { const on = l.dataset.k === e.opt; l.classList.toggle('on', on); l.querySelector('input').checked = on; });
     art.querySelectorAll('.sub').forEach(s => { const v = e.subs && e.subs[s.dataset.sub]; s.querySelectorAll('.chip').forEach(b => b.classList.toggle('on', b.dataset.k === v)); });
     art.querySelectorAll('input[data-note]').forEach(inp => { const v = (e.notes && e.notes[inp.dataset.note]) || ''; if (inp.value !== v) inp.value = v; });
@@ -320,13 +363,11 @@
   function paintAll() { Object.keys(D).forEach(paint); summary(); }
 
   function summary() {
-    const ids = Object.keys(D); let rec = 0, alt = 0;
-    ids.forEach(id => { const e = state.d[id]; if (e && e.opt) { if (e.opt === recKey(D[id])) rec++; else alt++; } });
-    document.getElementById('p-count').textContent = rec + alt;
-    document.getElementById('c-rec').textContent = rec; document.getElementById('c-alt').textContent = alt;
+    const ids = Object.keys(D), n = { rec: 0, ok: 0, alt: 0 };
+    ids.forEach(id => { const e = state.d[id]; if (e && e.opt) n[pickState(D[id], e.opt)]++; });
+    document.getElementById('p-count').textContent = n.rec + n.ok + n.alt;
     const bar = document.getElementById('p-bar');
-    bar.querySelector('.b-rec').style.width = (rec / ids.length * 100) + '%';
-    bar.querySelector('.b-alt').style.width = (alt / ids.length * 100) + '%';
+    ['rec', 'ok', 'alt'].forEach(st => { document.getElementById('c-' + st).textContent = n[st]; bar.querySelector('.b-' + st).style.width = (n[st] / ids.length * 100) + '%'; });
     let m = 0; document.querySelectorAll('#must-list a').forEach(a => { const ok = !!(state.d[a.dataset.id] && state.d[a.dataset.id].opt); a.classList.toggle('done', ok); if (ok) m++; });
     document.getElementById('m-count').textContent = m;
     document.getElementById('export-text').value = exportText();
@@ -337,8 +378,8 @@
     PARTS.forEach(p => p.items.forEach(id => {
       const d = D[id], e = state.d[id];
       if (!e || !e.opt) { lines.push(`${id.padStart(2, ' ')}  (skipped → ${d.dflt})`); return; }
-      const o = d.opts.find(x => x.k === e.opt);
-      let l = `${id.padStart(2, ' ')}  ${o ? o.t : e.opt}${e.opt === recKey(d) ? ' [rec]' : ''}` + (e.why ? ` — ${e.why.trim()}` : '');
+      const oi = d.opts.findIndex(x => x.k === e.opt), o = d.opts[oi], st = pickState(d, e.opt);
+      let l = `${id.padStart(2, ' ')}  ${oi >= 0 ? letter(oi) + ' — ' : ''}${o ? o.t : e.opt}${st === 'rec' ? ' [rec]' : st === 'ok' ? ' [ok]' : ''}` + (e.why ? ` — ${e.why.trim()}` : '');
       (d.subs || []).forEach(s => { const v = e.subs && e.subs[s.k]; const n = e.notes && e.notes[s.k]; if (v) { const so = s.opts.find(x => x.k === v); l += `\n      · ${s.q} → ${so ? so.t : v}`; } if (n) l += `\n      · ${s.q} → ${n.trim()}`; });
       lines.push(l);
     }));
