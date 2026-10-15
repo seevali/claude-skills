@@ -1,5 +1,6 @@
 {
   "name": "claude-skills",
+  "description": "Claude Code skills by Seevali Rathnayake: design-council (a five-designer critique panel), mission-command (a scarce flagship model conducting a fleet of cheaper models) and ratification-docket (decision ballots from dense documents).",
   "owner": {
     "name": "Seevali Rathnayake"
   },

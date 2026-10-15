@@ -5,5 +5,7 @@
     "name": "Seevali Rathnayake"
   },
   "license": "Apache-2.0",
+  "homepage": "https://github.com/seevali/claude-skills/tree/main/design-council",
+  "repository": "https://github.com/seevali/claude-skills",
   "version": "1.0.0"
 }
