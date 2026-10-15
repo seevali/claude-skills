@@ -5,7 +5,8 @@
 A [Claude Skill](https://docs.anthropic.com/en/docs/claude-code/skills) for the moment an operation has produced a decision
 record, a report and a tracker full of Proposed items and operator gates, and the owner has to ratify, amend or reject them.
 Instead of a walkthrough written in the documents' own vocabulary, Claude builds an interactive ballot page: one card per real
-decision, each with the question in plain words, what each option gets and costs, a recommendation, and the default if skipped.
+decision, each with the question in plain words, lettered options with what each gets and costs, a recommendation named by
+its letter, and the default if skipped.
 Answers save to the page. Claude reads them back, writes a dated decision record, and updates every Status line, tracker and
 ledger the rulings touch.
 
