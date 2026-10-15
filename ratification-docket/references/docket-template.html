@@ -66,10 +66,10 @@
   .prog-lab { color: var(--muted); font-size: 14px; }
   .bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; display: flex; }
   .bar > i { display: block; height: 100%; }
-  .b-rec { background: var(--rec); } .b-ok { background: var(--ok); } .b-alt { background: var(--alt); }
+  .b-rec { background: var(--rec); } .b-ok { background: var(--ok); } .b-alt { background: var(--alt); } .b-own { background: var(--accent); }
   .legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
   .legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-  .legend .l-rec::before { background: var(--rec); } .legend .l-ok::before { background: var(--ok); } .legend .l-alt::before { background: var(--alt); }
+  .legend .l-rec::before { background: var(--rec); } .legend .l-ok::before { background: var(--ok); } .legend .l-alt::before { background: var(--alt); } .legend .l-own::before { background: var(--accent); }
   .save-state { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; min-height: 20px; }
   .save-state .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
   .save-state.ok .dot { background: var(--rec); } .save-state.busy .dot { background: var(--alt); } .save-state.local .dot { background: var(--must); }
@@ -108,6 +108,7 @@
   .card[data-state="rec"] { border-left: 4px solid var(--rec); }
   .card[data-state="ok"] { border-left: 4px solid var(--ok); }
   .card[data-state="alt"] { border-left: 4px solid var(--alt); }
+  .card[data-state="own"] { border-left: 4px solid var(--accent); }
   .build-error { background: var(--err-soft); border: 1px solid var(--err); border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; display: grid; gap: 4px; }
   .build-error b { color: var(--err); }
   .lk { display: inline-block; min-width: 1.5em; text-align: center; font-family: ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; margin-right: 8px; vertical-align: 1px; }
@@ -179,8 +180,8 @@
       <div class="rail-title">Decisions made</div>
       <div class="progress">
         <div class="prog-row"><span class="prog-big" id="p-count">0</span><span class="prog-lab">of <span id="p-total">0</span></span></div>
-        <div class="bar" id="p-bar"><i class="b-rec" style="width:0"></i><i class="b-ok" style="width:0"></i><i class="b-alt" style="width:0"></i></div>
-        <div class="legend"><span class="l-rec">Took the recommendation <b id="c-rec">0</b></span><span class="l-ok">Took an acceptable option <b id="c-ok">0</b></span><span class="l-alt">Went another way <b id="c-alt">0</b></span></div>
+        <div class="bar" id="p-bar"><i class="b-rec" style="width:0"></i><i class="b-ok" style="width:0"></i><i class="b-alt" style="width:0"></i><i class="b-own" style="width:0"></i></div>
+        <div class="legend"><span class="l-rec">Took the recommendation <b id="c-rec">0</b></span><span class="l-ok">Took an acceptable option <b id="c-ok">0</b></span><span class="l-alt">Went another way <b id="c-alt">0</b></span><span class="l-own">Your call, no recommendation <b id="c-own">0</b></span></div>
         <div class="save-state" id="save-state"><span class="dot"></span><span id="save-text">Connecting to the page store…</span></div>
       </div>
     </div>
@@ -238,7 +239,8 @@
   //                      never both on one option. gets/costs are plain consequences.
   //   rec              — WHY the recommended option, in one or two sentences. The page names the option's letter and title itself,
   //                      so never write "Option c" here. With no rec:true option this is the reason there is none
-  //                      ("A commercial call; only you can weigh it.").
+  //                      ("A commercial call; only you can weigh it."); a pick on such a card counts as the owner's own call,
+  //                      not as a departure.
   //   subs: [{k, q, why, opts:[{k,t,rec}], note:true}] — sub-questions where the sources silently disagree; note:true adds a free-text box
   //   dflt             — what happens if the card is skipped, in plain words
   //   trace            — the document ids, section numbers and finding labels this card came from (collapsed on the page)
@@ -282,8 +284,9 @@
   function recKey(d) { const o = d.opts.find(x => x.rec); return o ? o.k : null; }
   function okKeys(d) { return d.opts.filter(x => x.ok).map(x => x.k); }
   function letter(i) { return String.fromCharCode(65 + i); }
-  // How a pick relates to the recommendation: 'rec' (took it), 'ok' (an acceptable option), 'alt' (went another way), '' (no pick).
-  function pickState(d, k) { return !k ? '' : k === recKey(d) ? 'rec' : okKeys(d).includes(k) ? 'ok' : 'alt'; }
+  // How a pick relates to the recommendation: 'rec' (took it), 'ok' (an acceptable option), 'alt' (went another way),
+  // 'own' (the card made no recommendation, so the pick is the owner's own call, neither taken nor departed), '' (no pick).
+  function pickState(d, k) { return !k ? '' : k === recKey(d) ? 'rec' : okKeys(d).includes(k) ? 'ok' : recKey(d) === null ? 'own' : 'alt'; }
   // Two recommended options on one card, or one option marked both recommended and acceptable, is a build error. It is shown
   // at the top of the page for whoever builds the docket, instead of the page silently taking the first marker.
   function validate() {
@@ -363,11 +366,11 @@
   function paintAll() { Object.keys(D).forEach(paint); summary(); }
 
   function summary() {
-    const ids = Object.keys(D), n = { rec: 0, ok: 0, alt: 0 };
+    const ids = Object.keys(D), n = { rec: 0, ok: 0, alt: 0, own: 0 };
     ids.forEach(id => { const e = state.d[id]; if (e && e.opt) n[pickState(D[id], e.opt)]++; });
-    document.getElementById('p-count').textContent = n.rec + n.ok + n.alt;
+    document.getElementById('p-count').textContent = n.rec + n.ok + n.alt + n.own;
     const bar = document.getElementById('p-bar');
-    ['rec', 'ok', 'alt'].forEach(st => { document.getElementById('c-' + st).textContent = n[st]; bar.querySelector('.b-' + st).style.width = (n[st] / ids.length * 100) + '%'; });
+    ['rec', 'ok', 'alt', 'own'].forEach(st => { document.getElementById('c-' + st).textContent = n[st]; bar.querySelector('.b-' + st).style.width = (n[st] / ids.length * 100) + '%'; });
     let m = 0; document.querySelectorAll('#must-list a').forEach(a => { const ok = !!(state.d[a.dataset.id] && state.d[a.dataset.id].opt); a.classList.toggle('done', ok); if (ok) m++; });
     document.getElementById('m-count').textContent = m;
     document.getElementById('export-text').value = exportText();
@@ -379,7 +382,7 @@
       const d = D[id], e = state.d[id];
       if (!e || !e.opt) { lines.push(`${id.padStart(2, ' ')}  (skipped → ${d.dflt})`); return; }
       const oi = d.opts.findIndex(x => x.k === e.opt), o = d.opts[oi], st = pickState(d, e.opt);
-      let l = `${id.padStart(2, ' ')}  ${oi >= 0 ? letter(oi) + ' — ' : ''}${o ? o.t : e.opt}${st === 'rec' ? ' [rec]' : st === 'ok' ? ' [ok]' : ''}` + (e.why ? ` — ${e.why.trim()}` : '');
+      let l = `${id.padStart(2, ' ')}  ${oi >= 0 ? letter(oi) + ' — ' : ''}${o ? o.t : e.opt}${st === 'rec' ? ' [rec]' : st === 'ok' ? ' [ok]' : st === 'own' ? ' [your call]' : ''}` + (e.why ? ` — ${e.why.trim()}` : '');
       (d.subs || []).forEach(s => { const v = e.subs && e.subs[s.k]; const n = e.notes && e.notes[s.k]; if (v) { const so = s.opts.find(x => x.k === v); l += `\n      · ${s.q} → ${so ? so.t : v}`; } if (n) l += `\n      · ${s.q} → ${n.trim()}`; });
       lines.push(l);
     }));
