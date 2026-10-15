@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # mc-hook-lib.sh — shared functions for the mission-command landing hooks.
 # Sourced, never executed. Contract: references/landing.md.
 # Every function tolerates missing input/files and yields empty output instead
