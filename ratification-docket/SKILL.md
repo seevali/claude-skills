@@ -42,8 +42,8 @@ that to answer one line the owner has to go and read what a "W6" or an "OPEN-5(b
   sentences, every project term defined inline or in a short "terms, once" box at the top of the page (six terms at most);
   **the options**, lettered A, B, C on the page in the order written, each with what it *gets* the owner and what it *costs*;
   at most one option carries the *recommended* marker and any number may carry *acceptable* (a choice you would not argue
-  with; taking it is not a departure); **a recommendation**: the page names the marked option by its letter and title, so
-  the sentence under it is the *why*, never "Option c"; or "no recommendation, this is a commercial / personal call" when
+  with; taking it is not a departure); **a recommendation**: the page writes "Option A" from the marked option (the letter alone;
+  the option sits right below), so the sentence under it is the *why*, never "Option c"; or "no recommendation, this is a commercial / personal call" when
   that is true, with no option marked; **the default if skipped**, in plain words;
   **sub-questions** where the documents silently disagree, each with its own options and recommended one; a collapsed
   **"where this comes from"** line holding every document id, section number and finding label — for the update pass, not
