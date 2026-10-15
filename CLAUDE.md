@@ -23,7 +23,7 @@ This repo is a git submodule of the Metis monorepo (`skills/claude-skills`), wit
 - **SKILL.md body is the payload.** It's written as instructions *to Claude*, not documentation *about* the skill. Keep it lean; push long supporting material into `references/`.
 - Every skill also gets a `README.md` written for humans (overview, installation commands, usage), and a row in the root `README.md` skills table.
 - **This repo installs via two mechanisms, both dependent on the layout above:**
-  - **`npx skills` CLI** (Vercel's `skills` package): discovers skills purely from the top-level-`<skill-name>/SKILL.md` layout — no repo-level config needed. Do not restructure skills away from this shape.
+  - **`npx skills` CLI** (Vercel's `skills` package): its standard search paths are the repo root and `skills/`-style folders, so it finds this repo's top-level `<skill-name>/SKILL.md` folders through the entries declared in `.claude-plugin/marketplace.json` (verified against the CLI README on 2026-10-16) — the marketplace file is load-bearing for both install paths. Do not restructure skills away from this shape.
   - **Claude Code plugin marketplace**: `.claude-plugin/marketplace.json` at repo root lists each skill as a plugin entry (`name`, `source`, `description`, `license` — no `version`, since git commits act as versions here); each skill dir carries its own `.claude-plugin/plugin.json` with matching metadata. A single `SKILL.md` at a plugin's root (no `skills/` subdirectory needed) is a documented default location — confirmed working via `claude plugin validate` on 2026-07-05.
 
 ## Conventions
