@@ -1,5 +1,7 @@
 # Claude Skills
 
+[![skills.sh](https://skills.sh/b/seevali/claude-skills)](https://skills.sh/seevali/claude-skills)
+
 A collection of custom [Claude Skills](https://docs.anthropic.com/en/docs/claude-code/skills) — reusable prompt packages that give Claude specialized capabilities.
 
 ## Skills
