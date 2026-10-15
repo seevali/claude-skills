@@ -327,7 +327,7 @@
   function card(id) {
     const d = D[id]; const ri = d.opts.findIndex(x => x.rec);
     const recline = ri >= 0
-      ? `<div class="recline"><i></i><div><div class="lab">My recommendation</div><p class="pick"><span class="lk">${letter(ri)}</span>${esc(d.opts[ri].t)}</p>${d.rec ? `<p>${esc(d.rec)}</p>` : ''}</div></div>`
+      ? `<div class="recline"><i></i><div><div class="lab">My recommendation</div><p class="pick">Option ${letter(ri)}</p>${d.rec ? `<p>${esc(d.rec)}</p>` : ''}</div></div>`
       : `<div class="recline none"><i></i><div><div class="lab">No recommendation</div><p>${esc(d.rec || 'Your call.')}</p></div></div>`;
     const art = document.createElement('article'); art.className = 'card'; art.id = 'd-' + id; art.dataset.id = id;
     const opts = d.opts.map((o, i) => `<label class="opt is-${pickState(d, o.k)}" data-k="${esc(o.k)}"><input type="radio" name="d${id}" value="${esc(o.k)}"><div><div class="t"><span class="lk">${letter(i)}</span>${esc(o.t)}${o.rec ? '<span class="tag">recommended</span>' : o.ok ? '<span class="tag ok">acceptable</span>' : ''}</div>${(o.gets || o.costs) ? `<div class="gc">${o.gets ? '<b>Gets:</b> ' + esc(o.gets) + ' ' : ''}${o.costs ? '<b>Costs:</b> ' + esc(o.costs) : ''}</div>` : ''}</div></label>`).join('');
