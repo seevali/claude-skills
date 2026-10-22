@@ -283,7 +283,7 @@
   }
   function recKey(d) { const o = d.opts.find(x => x.rec); return o ? o.k : null; }
   function okKeys(d) { return d.opts.filter(x => x.ok).map(x => x.k); }
-  function letter(i) { return String.fromCharCode(65 + i); }
+  function letter(i) { return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[i] || String(i + 1); }
   // How a pick relates to the recommendation: 'rec' (took it), 'ok' (an acceptable option), 'alt' (went another way),
   // 'own' (the card made no recommendation, so the pick is the owner's own call, neither taken nor departed), '' (no pick).
   function pickState(d, k) { return !k ? '' : k === recKey(d) ? 'rec' : okKeys(d).includes(k) ? 'ok' : recKey(d) === null ? 'own' : 'alt'; }
