@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# tests/run.sh — the landing contract's cases (references/landing.md, "Tests").
-# bash tests/run.sh   → one line per case, then "passed X failed Y".
+# tests/mission-command/run.sh — the landing contract's cases (mission-command/references/landing.md, "Tests").
+# bash tests/mission-command/run.sh   → one line per case, then "passed X failed Y".
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
-S="$HERE/../scripts"
+S="$HERE/../../mission-command/scripts"
 T="$(mktemp -d "${TMPDIR:-/tmp}/mc-test.XXXXXX")"
 trap 'rm -rf "$T"' EXIT
 export MC_HOOK_TMP="$T/hooktmp"

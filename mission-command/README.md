@@ -49,9 +49,9 @@ The fleet mechanics need `bash`, `jq` and `git`. Worker definitions: the shipped
 
 ```bash
 git config --get core.autocrlf
-grep -lU $'\r' mission-command/scripts/*.sh mission-command/tests/*.sh mission-command/agents/*.md
+grep -lU $'\r' mission-command/scripts/*.sh tests/mission-command/*.sh mission-command/agents/*.md
 command -v jq realpath git bash claude cygpath
-bash mission-command/tests/run.sh
+bash tests/mission-command/run.sh
 bash mission-command/scripts/mc-dispatch.sh --unit W-TEST --agent mc-worker-opus --worktree "$(pwd)" --return /tmp/ret.md --out /tmp/W-TEST.dispatch.json --cap 10
 bash mission-command/scripts/mc-run.sh --dry-run /tmp/W-TEST.dispatch.json mc-worker-opus /tmp/ret.md
 ```
@@ -78,11 +78,11 @@ mission-command/
 ├── README.md     # This file
 ├── agents/       # Worker definitions with landing hooks
 ├── scripts/      # The three hooks, mc-dispatch.sh, mc-land.sh, mc-run.sh
-├── references/
-│   └── landing.md  # The landing contract
-└── tests/
-    └── run.sh
+└── references/
+    └── landing.md  # The landing contract
 ```
+
+The test harness lives outside the installed folder, at `tests/mission-command/run.sh` in the repository root, so an install carries no developer tooling.
 
 ## Background
 
