@@ -1,5 +1,7 @@
 # Claude Skills
 
+[![HOL Guard](https://img.shields.io/endpoint?url=https%3A%2F%2Fhol.org%2Fapi%2Fregistry%2Fbadges%2Fplugin%3Fslug%3Dseevali%252Fclaude-skills%26metric%3Drelease)](https://hol.org/registry/plugins/seevali%2Fclaude-skills)
+
 [![skills.sh](https://skills.sh/b/seevali/claude-skills)](https://skills.sh/seevali/claude-skills)
 
 A collection of custom [Claude Skills](https://docs.anthropic.com/en/docs/claude-code/skills) — reusable prompt packages that give Claude specialized capabilities.
