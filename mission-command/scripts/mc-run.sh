@@ -35,7 +35,7 @@ shipped="$(mc_norm_path "$(dirname "$0")/../agents")/$name.md"
 global="$(mc_config_dir)/agents/$name.md"
 if [ -f "$shipped" ]; then
   def="$shipped"
-  [ -f "$global" ] || printf 'mc-run: note: no user-level copy at %s; a skills-folder install needs scripts/mc-install-agents.sh first\n' "$global" >&2
+  [ -f "$global" ] || printf 'mc-run: note: no user-level copy at %s; fine under a plugin install (address the agent as mission-command:%s), a skills-folder install needs scripts/mc-install-agents.sh first\n' "$global" "$name" >&2
 elif [ -f "$global" ]; then
   def="$global"
 else

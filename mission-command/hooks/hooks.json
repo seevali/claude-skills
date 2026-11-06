@@ -1,0 +1,35 @@
+{
+  "description": "Mission-command landing hooks for plugin-installed workers: a turn gauge on every tool result, a reserve that allows only landing actions, and a stop gate. A plugin ignores hooks in its agents' frontmatter, so they are registered here. Every hook is inert in a session whose first user line carries no MC_DISPATCH= token.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/mc-hook.sh\" reserve" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/mc-hook.sh\" gauge" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/mc-hook.sh\" stop-gate" }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "shell": "bash", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/mc-hook.sh\" stop-gate" }
+        ]
+      }
+    ]
+  }
+}

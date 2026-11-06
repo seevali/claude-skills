@@ -43,7 +43,10 @@ cp -r mission-command ~/.claude/skills/mission-command   # global
 cp -r mission-command .claude/skills/mission-command     # project-level
 ```
 
-The fleet mechanics need `bash`, `jq` and `git`. Worker definitions: the shipped definitions reference `${CLAUDE_PLUGIN_ROOT}` and work as-is under a plugin install; for a skills-folder install or headless runs, run `scripts/mc-install-agents.sh` once, which copies them to the `agents/` folder of Claude Code's config directory (`$CLAUDE_CONFIG_DIR`, else `~/.claude`) with the path filled in. Claude Code runs a project agent's frontmatter hooks only after you accept the workspace trust dialog once for that folder.
+The fleet mechanics need `bash`, `jq` and `git`. The three landing hooks reach a worker by one of two routes, and the route follows the install:
+
+- **Plugin install** (marketplace): the plugin registers the hooks in `hooks/hooks.json`, and the workers are the plugin's own agents, addressed as `mission-command:mc-worker-opus` and `mission-command:mc-worker-sonnet`. Nothing to install. Claude Code ignores the `hooks` key in a plugin agent's frontmatter (verified 2026-11-07: a plugin worker ran with no gauge, no reserve and no stop gate), which is why they live at plugin level. Plugin hooks run on every tool call of every session where the plugin is enabled and stay inert, at about 20 ms per hook call measured on WSL 2, whenever the session's first user line carries no `MC_DISPATCH=` token. Do not also run the installer below: a worker reached by both routes gets every hook twice.
+- **Skills-folder install** (`npx skills`, manual copy): no plugin, so no `hooks.json`. Run `scripts/mc-install-agents.sh` once; it copies the two definitions to the `agents/` folder of Claude Code's config directory (`$CLAUDE_CONFIG_DIR`, else `~/.claude`) with the hook paths filled in, and Claude Code honours frontmatter hooks on user-level agents. The workers are then `mc-worker-opus` and `mc-worker-sonnet`. A project agent's frontmatter hooks run only after you accept the workspace trust dialog once for that folder.
 
 **Windows** — Git for Windows is required: its Git Bash runs the hooks. The PowerShell fallback is not supported by this skill, and the `shell: bash` on every hook entry in `agents/mc-worker-*.md` makes a missing Git Bash fail visibly instead of falling through to PowerShell. Git for Windows does not ship `jq`: install it with `winget install jqlang.jq`. Clone with LF line endings: the repo's `.gitattributes` handles it (a CRLF script fails to parse, and the hooks go inert); if a clone predates it, run `git add --renormalize .` in it. WSL 2 needs none of this.
 
@@ -78,7 +81,8 @@ Or invoke it directly: `/mission-command`.
 mission-command/
 ├── SKILL.md      # The protocol: cost model + six phases + non-negotiables
 ├── README.md     # This file
-├── agents/       # Worker definitions with landing hooks
+├── agents/       # Worker definitions (frontmatter hooks serve the skills-folder route)
+├── hooks/        # hooks.json: the same three hooks at plugin level (the plugin route)
 ├── scripts/      # The three hooks, mc-dispatch.sh, mc-land.sh, mc-run.sh
 └── references/
     └── landing.md  # The landing contract
@@ -90,7 +94,7 @@ The test harness lives outside the installed folder, at `tests/mission-command/r
 
 Written for anyone reviewing the plugin before installing it, including the plugin directory's policy review.
 
-- **Reads.** The three hooks read the JSON the harness hands them on stdin and the worker's own transcript file, at the `transcript_path` in that JSON, for two things only: the number of distinct assistant message ids (the turn count) and the `MC_DISPATCH=<path>` token in the first user line. Nothing from the transcript is kept beyond a per-worker cache of that path under `/tmp/mc-hooks`. `mc-run.sh` and `mc-dispatch.sh` read agent frontmatter (`model`, `effort`, `maxTurns`) from the definitions shipped in `agents/`, falling back to the `agents/` folder of Claude Code's config directory (`$CLAUDE_CONFIG_DIR`, else `~/.claude`) for a skills-folder install. No other file under that directory is read: no credentials file, no settings, no token, no environment secret, no keychain.
+- **Reads.** The three hooks read the JSON the harness hands them on stdin and the worker's own transcript file, at the `transcript_path` in that JSON, for two things only: the number of distinct assistant message ids (the turn count) and the `MC_DISPATCH=<path>` token in the first user line. Under a plugin install they run in every session where the plugin is enabled; in a session that is not a worker they read that first line once, cache the negative answer, and do nothing further. Nothing from the transcript is kept beyond a per-session cache of that path under `/tmp/mc-hooks`. `mc-run.sh` and `mc-dispatch.sh` read agent frontmatter (`model`, `effort`, `maxTurns`) from the definitions shipped in `agents/`, falling back to the `agents/` folder of Claude Code's config directory (`$CLAUDE_CONFIG_DIR`, else `~/.claude`) for a skills-folder install. No other file under that directory is read: no credentials file, no settings, no token, no environment secret, no keychain.
 - **Writes.** The dispatch, gauge and return files the conductor names; `wip:` and `land:` commits in the worker's worktree; and, only when you run `mc-install-agents.sh` yourself, two agent definitions into the config directory's `agents/` folder.
 - **Sends.** Nothing. The scripts make no network calls. The one outward process is `claude -p` in `mc-run.sh`: the user's own Claude Code CLI under the user's own login, given the brief and the stripped flags and nothing else from the machine. No script ever runs `git push`.
 

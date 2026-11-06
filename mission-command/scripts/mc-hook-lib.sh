@@ -67,10 +67,10 @@ mc_in() {
 }
 
 # agent_id when present, else session_id. Sanitised for use as a file name.
+# One jq call: this runs on every tool call of every session under a plugin install.
 mc_key() {
   local k
-  k="$(mc_in '.agent_id')"
-  [ -n "$k" ] || k="$(mc_in '.session_id')"
+  k="$(mc_in '(.agent_id // .session_id)')"
   printf '%s' "$k" | tr -c 'A-Za-z0-9._-' '_'
 }
 

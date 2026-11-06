@@ -364,6 +364,7 @@ check "CLAUDE_CONFIG_DIR relocates the agents folder for mc-dispatch" [ "$(jq -r
 o="$(cd "$P" && HOME="$T/emptyhome" CLAUDE_CONFIG_DIR="$T/cfg" bash "$S/mc-run.sh" --dry-run "$T/r9/W-C.dispatch.json" homeonly "$T/brief.md")"
 check "CLAUDE_CONFIG_DIR relocates the agents folder for mc-run" has "$o" "--agent homeonly"
 ROOT="$(realpath -m "$S/..")"
+check "hooks.json registers the four events, every command the wrapper by its plugin-root path" jq -e '(.hooks | keys | sort) == ["PostToolUse","PreToolUse","Stop","SubagentStop"] and ([.hooks[][].hooks[] | select(.type == "command" and (.command | test("^\"\\$\\{CLAUDE_PLUGIN_ROOT\\}/scripts/mc-hook\\.sh\" (gauge|reserve|stop-gate)$")))] | length) == 4 and ([.hooks[][].hooks[]] | length) == 4 and (.hooks.PreToolUse[0].hooks[0].command | endswith("reserve")) and (.hooks.PostToolUse[0].hooks[0].command | endswith("gauge")) and ([.hooks.Stop, .hooks.SubagentStop | .[0].hooks[0].command | endswith("stop-gate")] | all)' "$ROOT/hooks/hooks.json"
 check "mc-install-agents writes into CLAUDE_CONFIG_DIR with the root filled in" bash -c "HOME='$T/emptyhome' CLAUDE_CONFIG_DIR='$T/cfg2' bash '$S/mc-install-agents.sh' >/dev/null && [ -f '$T/cfg2/agents/mc-worker-opus.md' ] && ! grep -q 'CLAUDE_PLUGIN_ROOT' '$T/cfg2/agents/mc-worker-opus.md' && grep -qF '$ROOT/scripts/mc-hook.sh' '$T/cfg2/agents/mc-worker-sonnet.md'"
 
 echo "passed $PASS failed $FAIL"
