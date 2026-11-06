@@ -41,7 +41,7 @@ cp -r mission-command ~/.claude/skills/mission-command   # global
 cp -r mission-command .claude/skills/mission-command     # project-level
 ```
 
-The fleet mechanics need `bash`, `jq` and `git`. Worker definitions: the shipped definitions reference `${CLAUDE_PLUGIN_ROOT}` and work as-is under a plugin install; for a skills-folder install or headless runs, run `scripts/mc-install-agents.sh` once, which copies them to `~/.claude/agents/` with the path filled in. Claude Code runs a project agent's frontmatter hooks only after you accept the workspace trust dialog once for that folder.
+The fleet mechanics need `bash`, `jq` and `git`. Worker definitions: the shipped definitions reference `${CLAUDE_PLUGIN_ROOT}` and work as-is under a plugin install; for a skills-folder install or headless runs, run `scripts/mc-install-agents.sh` once, which copies them to the `agents/` folder of Claude Code's config directory (`$CLAUDE_CONFIG_DIR`, else `~/.claude`) with the path filled in. Claude Code runs a project agent's frontmatter hooks only after you accept the workspace trust dialog once for that folder.
 
 **Windows** — Git for Windows is required: its Git Bash runs the hooks. The PowerShell fallback is not supported by this skill, and the `shell: bash` on every hook entry in `agents/mc-worker-*.md` makes a missing Git Bash fail visibly instead of falling through to PowerShell. Git for Windows does not ship `jq`: install it with `winget install jqlang.jq`. Clone with LF line endings: the repo's `.gitattributes` handles it (a CRLF script fails to parse, and the hooks go inert); if a clone predates it, run `git add --renormalize .` in it. WSL 2 needs none of this.
 
@@ -56,7 +56,7 @@ bash mission-command/scripts/mc-dispatch.sh --unit W-TEST --agent mc-worker-opus
 bash mission-command/scripts/mc-run.sh --dry-run /tmp/W-TEST.dispatch.json mc-worker-opus /tmp/ret.md
 ```
 
-The `grep` prints nothing (no CRLF in the working tree), `command -v` prints six paths, the suite ends `failed 0`, and the dry run prints a `cd … && claude -p …` line whose paths are all in POSIX form (`/c/…`, `/tmp/…`), never `C:\…`. `mc-run.sh` reads the definition from `~/.claude/agents/`, so run `bash mission-command/scripts/mc-install-agents.sh` first; the brief argument only has to exist, so the return skeleton serves.
+The `grep` prints nothing (no CRLF in the working tree), `command -v` prints six paths, the suite ends `failed 0`, and the dry run prints a `cd … && claude -p …` line whose paths are all in POSIX form (`/c/…`, `/tmp/…`), never `C:\…`. `claude -p --agent` finds a definition only where the harness looks (the plugin, or the config directory's `agents/`), so under a skills-folder install run `bash mission-command/scripts/mc-install-agents.sh` first; `mc-run.sh` prints a note when that copy is missing. The brief argument only has to exist, so the return skeleton serves.
 
 **Claude.ai** — zip the `mission-command` folder (folder at ZIP root) and upload it under Settings → Capabilities → Skills. Note: on claude.ai the *doctrine* loads, but the fleet mechanics (per-agent model pinning, headless worker loops) require Claude Code — the skill degrades to single-agent execution of the same moves.
 
@@ -83,6 +83,14 @@ mission-command/
 ```
 
 The test harness lives outside the installed folder, at `tests/mission-command/run.sh` in the repository root, so an install carries no developer tooling.
+
+## What it reads, writes and sends
+
+Written for anyone reviewing the plugin before installing it, including the plugin directory's policy review.
+
+- **Reads.** The three hooks read the JSON the harness hands them on stdin and the worker's own transcript file, at the `transcript_path` in that JSON, for two things only: the number of distinct assistant message ids (the turn count) and the `MC_DISPATCH=<path>` token in the first user line. Nothing from the transcript is kept beyond a per-worker cache of that path under `/tmp/mc-hooks`. `mc-run.sh` and `mc-dispatch.sh` read agent frontmatter (`model`, `effort`, `maxTurns`) from the definitions shipped in `agents/`, falling back to the `agents/` folder of Claude Code's config directory (`$CLAUDE_CONFIG_DIR`, else `~/.claude`) for a skills-folder install. No other file under that directory is read: no credentials file, no settings, no token, no environment secret, no keychain.
+- **Writes.** The dispatch, gauge and return files the conductor names; `wip:` and `land:` commits in the worker's worktree; and, only when you run `mc-install-agents.sh` yourself, two agent definitions into the config directory's `agents/` folder.
+- **Sends.** Nothing. The scripts make no network calls. The one outward process is `claude -p` in `mc-run.sh`: the user's own Claude Code CLI under the user's own login, given the brief and the stripped flags and nothing else from the machine. No script ever runs `git push`.
 
 ## Background
 

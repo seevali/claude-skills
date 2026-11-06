@@ -23,14 +23,26 @@ unit="$(f unit)"; wt="$(mc_norm_path "$(f worktree)")"; cap="$(f cap)"; mode="$(
 [ -n "$unit" ] && [ -n "$wt" ] && [ -n "$cap" ] || die "dispatch lacks unit, worktree or cap"
 [ -n "$mode" ] || mode=bypassPermissions
 
-# A headless run starts in the worktree and sees only global definitions
-# (references/landing.md, "Facts"), so ~/.claude/agents is the only home.
-def="$(mc_norm_path "$HOME")/.claude/agents/$agent.md"
-if [ ! -f "$def" ]; then
+# The definition's frontmatter (model, effort) is read from the copy shipped
+# next to this script when the agent is one of ours, so a plugin install reads
+# nothing outside the plugin; a plugin-qualified name (plugin:agent) is looked
+# up by its last segment. Otherwise it is read from the user-level copy at
+# <config dir>/agents/<name>.md, where mc-install-agents.sh puts it for a
+# skills-folder install: a headless run starts in the worktree and sees only
+# global and plugin definitions (references/landing.md, "Facts").
+name="${agent##*:}"
+shipped="$(mc_norm_path "$(dirname "$0")/../agents")/$name.md"
+global="$(mc_config_dir)/agents/$name.md"
+if [ -f "$shipped" ]; then
+  def="$shipped"
+  [ -f "$global" ] || printf 'mc-run: note: no user-level copy at %s; a skills-folder install needs scripts/mc-install-agents.sh first\n' "$global" >&2
+elif [ -f "$global" ]; then
+  def="$global"
+else
   for d in "$PWD/.claude/agents/$agent.md" "$wt/.claude/agents/$agent.md"; do
-    [ -f "$d" ] && die "'$agent' is defined only at $d; a headless run cannot see project definitions — run scripts/mc-install-agents.sh to install it at ~/.claude/agents/$agent.md"
+    [ -f "$d" ] && die "'$agent' is defined only at $d; a headless run cannot see project definitions — run scripts/mc-install-agents.sh to install it at $global"
   done
-  die "no agent definition for '$agent' at ~/.claude/agents/$agent.md; run scripts/mc-install-agents.sh to install the shipped ones"
+  die "no agent definition for '$agent' at $global; run scripts/mc-install-agents.sh to install the shipped ones"
 fi
 fm() { awk -v k="$1" 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} index($0, k":")==1{sub(/^[^:]*:[ \t]*/,""); gsub(/[ \t"'"'"']/,""); print; exit}' "$def"; }
 model="$(fm model)"; effort="$(fm effort)"

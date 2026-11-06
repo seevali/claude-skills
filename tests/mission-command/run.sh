@@ -7,7 +7,7 @@ S="$HERE/../../mission-command/scripts"
 T="$(mktemp -d "${TMPDIR:-/tmp}/mc-test.XXXXXX")"
 trap 'rm -rf "$T"' EXIT
 export MC_HOOK_TMP="$T/hooktmp"
-unset MC_HOOKS_OFF
+unset MC_HOOKS_OFF CLAUDE_CONFIG_DIR
 PASS=0 FAIL=0
 
 check() { # check NAME COMMAND...
@@ -350,8 +350,21 @@ o="$(cd "$P" && HOME="$T/home" bash "$S/mc-run.sh" --dry-run "$T/r9/W-8.dispatch
 check "mc-run omits --effort when the definition has none" hasnt "$o" "--effort"
 check "mc-run rejects wrong argument count" bash -c "bash '$S/mc-run.sh' --dry-run '$T/r9/W-9.dispatch.json' fake; [ \$? -eq 2 ]"
 mkdir -p "$T/emptyhome"
-check "mc-run requires a global definition (project-only: exit 2, says copy)" bash -c "o=\$(cd '$P' && HOME='$T/emptyhome' bash '$S/mc-run.sh' --dry-run '$T/r9/W-9.dispatch.json' fake '$T/brief.md' 2>&1); rc=\$?; [ \$rc -eq 2 ] && [ \$(printf '%s\n' \"\$o\" | wc -l) -eq 1 ] && printf '%s' \"\$o\" | grep -qF 'cannot see project definitions' && printf '%s' \"\$o\" | grep -qF '~/.claude/agents/fake.md'"
+check "mc-run requires a global definition (project-only: exit 2, says copy)" bash -c "o=\$(cd '$P' && HOME='$T/emptyhome' bash '$S/mc-run.sh' --dry-run '$T/r9/W-9.dispatch.json' fake '$T/brief.md' 2>&1); rc=\$?; [ \$rc -eq 2 ] && [ \$(printf '%s\n' \"\$o\" | wc -l) -eq 1 ] && printf '%s' \"\$o\" | grep -qF 'cannot see project definitions' && printf '%s' \"\$o\" | grep -qF '/.claude/agents/fake.md'"
 check "mc-run rejects a missing brief" bash -c "cd '$P' && HOME='$T/home' bash '$S/mc-run.sh' --dry-run '$T/r9/W-9.dispatch.json' fake '$T/nope.md'; [ \$? -eq 2 ]"
+
+# --- shipped definitions and CLAUDE_CONFIG_DIR (nothing read under ~/.claude) -------
+(cd "$P" && HOME="$T/emptyhome" bash "$S/mc-dispatch.sh" --unit W-S --agent mission-command:mc-worker-opus --worktree "$WT" --return "$T/r9/W-S.md" --out "$T/r9/W-S.dispatch.json") >/dev/null
+check "mc-dispatch reads maxTurns from the shipped definition by a plugin-qualified name" [ "$(jq -r .cap "$T/r9/W-S.dispatch.json")" = 40 ]
+o="$(cd "$P" && HOME="$T/emptyhome" bash "$S/mc-run.sh" --dry-run "$T/r9/W-S.dispatch.json" mc-worker-opus "$T/brief.md" 2>"$T/note.txt")"
+check "mc-run reads a shipped definition with an empty home and notes the missing copy" bash -c 'printf "%s" "$1" | grep -qF -- "--effort medium" && grep -q "no user-level copy" "$2"' _ "$o" "$T/note.txt"
+mkdir -p "$T/cfg/agents"; cp "$T/home/.claude/agents/homeonly.md" "$T/cfg/agents/"
+(cd "$P" && HOME="$T/emptyhome" CLAUDE_CONFIG_DIR="$T/cfg" bash "$S/mc-dispatch.sh" --unit W-C --agent homeonly --worktree "$WT" --return "$T/r9/W-C.md" --out "$T/r9/W-C.dispatch.json") >/dev/null
+check "CLAUDE_CONFIG_DIR relocates the agents folder for mc-dispatch" [ "$(jq -r .cap "$T/r9/W-C.dispatch.json")" = 25 ]
+o="$(cd "$P" && HOME="$T/emptyhome" CLAUDE_CONFIG_DIR="$T/cfg" bash "$S/mc-run.sh" --dry-run "$T/r9/W-C.dispatch.json" homeonly "$T/brief.md")"
+check "CLAUDE_CONFIG_DIR relocates the agents folder for mc-run" has "$o" "--agent homeonly"
+ROOT="$(realpath -m "$S/..")"
+check "mc-install-agents writes into CLAUDE_CONFIG_DIR with the root filled in" bash -c "HOME='$T/emptyhome' CLAUDE_CONFIG_DIR='$T/cfg2' bash '$S/mc-install-agents.sh' >/dev/null && [ -f '$T/cfg2/agents/mc-worker-opus.md' ] && ! grep -q 'CLAUDE_PLUGIN_ROOT' '$T/cfg2/agents/mc-worker-opus.md' && grep -qF '$ROOT/scripts/mc-hook.sh' '$T/cfg2/agents/mc-worker-sonnet.md'"
 
 echo "passed $PASS failed $FAIL"
 [ "$FAIL" -eq 0 ]

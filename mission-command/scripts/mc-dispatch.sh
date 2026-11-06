@@ -37,15 +37,17 @@ done
   || die "--unit, --agent, --worktree, --return and --out are required"
 case "$landing" in commit|return-only) ;; *) die "--landing must be commit or return-only" ;; esac
 
-# maxTurns from the definition's frontmatter: <cwd>/.claude/agents, then ~/.claude/agents.
+# maxTurns from the definition's frontmatter: <cwd>/.claude/agents, then the
+# copy shipped next to this script, then <config dir>/agents (CLAUDE_CONFIG_DIR
+# or ~/.claude). A plugin-qualified name (plugin:agent) is looked up by its last segment.
 if [ -z "$cap" ]; then
-  for def in "$PWD/.claude/agents/$agent.md" "$(mc_norm_path "$HOME")/.claude/agents/$agent.md"; do
+  for def in "$PWD/.claude/agents/$agent.md" "$(mc_norm_path "$(dirname "$0")/../agents")/${agent##*:}.md" "$(mc_config_dir)/agents/${agent##*:}.md"; do
     [ -f "$def" ] || continue
     cap="$(awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} /^maxTurns:/{sub(/^maxTurns:[ \t]*/,""); gsub(/[ \t"'"'"']/,""); print; exit}' "$def")"
     [ -n "$cap" ] && break
   done
 fi
-[ -n "$cap" ] || die "no maxTurns for agent '$agent' in ./.claude/agents or ~/.claude/agents, and no --cap"
+[ -n "$cap" ] || die "no maxTurns for agent '$agent' in ./.claude/agents, the shipped agents/ or $(mc_config_dir)/agents, and no --cap"
 case "$cap$reserve" in *[!0-9]*) die "cap and reserve must be integers (cap=$cap reserve=$reserve)" ;; esac
 [ "$reserve" -lt "$cap" ] || die "reserve ($reserve) must be below cap ($cap)"
 

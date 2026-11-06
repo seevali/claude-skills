@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # mc-install-agents.sh [--force] — for a skills-folder install or headless runs.
-# Copies agents/mc-worker-opus.md and agents/mc-worker-sonnet.md to
-# ~/.claude/agents/, replacing the literal ${CLAUDE_PLUGIN_ROOT} (set only under
+# Copies agents/mc-worker-opus.md and agents/mc-worker-sonnet.md to the
+# agents/ folder of Claude Code's config directory ($CLAUDE_CONFIG_DIR, else
+# ~/.claude), replacing the literal ${CLAUDE_PLUGIN_ROOT} (set only under
 # a plugin install) with this skill's absolute root. Refuses to overwrite an
 # existing file unless --force. Prints each file it wrote.
 set -euo pipefail
@@ -20,7 +21,7 @@ for a in "$@"; do
 done
 
 root="$(mc_norm_path "$(cd "$(dirname "$0")/.." && pwd)")"
-dest="$(mc_norm_path "$HOME")/.claude/agents"
+dest="$(mc_config_dir)/agents"
 # The copies carry the root unquoted in a hook command string, which bash splits on whitespace.
 case "$root" in *[[:space:]]*) die "skill root contains whitespace: $root; move the skill to a path without spaces" ;; esac
 names=(mc-worker-opus.md mc-worker-sonnet.md)

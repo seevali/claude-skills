@@ -23,6 +23,14 @@ mc_norm_path() {
   realpath -m -- "$p" 2>/dev/null || printf '%s' "$p"
 }
 
+# Claude Code's per-user config directory: $CLAUDE_CONFIG_DIR when set (the
+# documented way to relocate ~/.claude), else ~/.claude. The conductor scripts
+# touch only its agents/ folder, and only when an agent definition is not
+# shipped next to them; nothing under it is read by the hooks.
+mc_config_dir() {
+  mc_norm_path "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+}
+
 # jq present, else one line to $MC_TMP/errors.log (no dispatch can be read
 # without jq, so the gauge file is out of reach) and return 1: the hook goes inert.
 mc_require_jq() {
