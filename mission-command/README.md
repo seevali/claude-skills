@@ -34,6 +34,8 @@ npx skills add seevali/claude-skills --skill mission-command
 /plugin install mission-command@claude-skills
 ```
 
+**Not on the Claude plugin directory, by decision.** Submitted 2026-10-16 and withdrawn 2026-11-07. The directory's policy check (2026-11-07, v1.2.0) refuses three things from any plugin not published by an Anthropic-Verified organization, with no way to apply for that status: hooks of type `command`, files that are not Markdown, text, JSON, YAML or images, and agent frontmatter keys outside its allow-list. The landing mechanics are exactly those three things (the three hooks, the `scripts/*.sh` files, and keys such as `maxTurns` and `hooks` in `agents/*.md`), so the plugin cannot be listed there without losing what makes it work. Do not resubmit unless that policy changes; the marketplace and `npx skills` routes above carry no such limit.
+
 **Claude Code, manual copy** — global (every project) or project-level:
 
 ```bash
