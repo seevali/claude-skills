@@ -380,7 +380,12 @@ o="$(cd "$P" && HOME="$T/emptyhome" CLAUDE_CONFIG_DIR="$T/cfg" bash "$S/mc-run.s
 check "CLAUDE_CONFIG_DIR relocates the agents folder for mc-run" has "$o" "--agent homeonly"
 ROOT="$(realpath -m "$S/..")"
 check "hooks.json registers the four events, every command the wrapper by its plugin-root path" jq -e '(.hooks | keys | sort) == ["PostToolUse","PreToolUse","Stop","SubagentStop"] and ([.hooks[][].hooks[] | select(.type == "command" and (.command | test("^\"\\$\\{CLAUDE_PLUGIN_ROOT\\}/scripts/mc-hook\\.sh\" (gauge|reserve|stop-gate)$")))] | length) == 4 and ([.hooks[][].hooks[]] | length) == 4 and (.hooks.PreToolUse[0].hooks[0].command | endswith("reserve")) and (.hooks.PostToolUse[0].hooks[0].command | endswith("gauge")) and ([.hooks.Stop, .hooks.SubagentStop | .[0].hooks[0].command | endswith("stop-gate")] | all)' "$ROOT/hooks/hooks.json"
-check "mc-install-agents writes into CLAUDE_CONFIG_DIR with the root filled in" bash -c "HOME='$T/emptyhome' CLAUDE_CONFIG_DIR='$T/cfg2' bash '$S/mc-install-agents.sh' >/dev/null && [ -f '$T/cfg2/agents/mc-worker-opus.md' ] && ! grep -q 'CLAUDE_PLUGIN_ROOT' '$T/cfg2/agents/mc-worker-opus.md' && grep -qF '$ROOT/scripts/mc-hook.sh' '$T/cfg2/agents/mc-worker-sonnet.md'"
+# A stand-in `claude` on PATH answers `plugin list` from a file, so the installer's plugin check is deterministic here.
+mkdir -p "$T/fakebin"; printf '#!/usr/bin/env bash\ncat "$FAKE_PLUGIN_LIST"\n' > "$T/fakebin/claude"; chmod +x "$T/fakebin/claude"
+printf '  ❯ mission-command@skills-dir\n    Version: 1.4.0\n    Scope: user\n' > "$T/pl-yes.txt"; : > "$T/pl-no.txt"
+check "mc-install-agents writes into CLAUDE_CONFIG_DIR with the root filled in" bash -c "PATH='$T/fakebin:$PATH' FAKE_PLUGIN_LIST='$T/pl-no.txt' HOME='$T/emptyhome' CLAUDE_CONFIG_DIR='$T/cfg2' bash '$S/mc-install-agents.sh' >/dev/null && [ -f '$T/cfg2/agents/mc-worker-opus.md' ] && ! grep -q 'CLAUDE_PLUGIN_ROOT' '$T/cfg2/agents/mc-worker-opus.md' && grep -qF '$ROOT/scripts/mc-hook.sh' '$T/cfg2/agents/mc-worker-sonnet.md'"
+check "mc-install-agents refuses while the skill loads as a plugin (1.4.0)" bash -c "o=\$(PATH='$T/fakebin:$PATH' FAKE_PLUGIN_LIST='$T/pl-yes.txt' HOME='$T/emptyhome' CLAUDE_CONFIG_DIR='$T/cfg3' bash '$S/mc-install-agents.sh' 2>&1); rc=\$?; [ \$rc -eq 2 ] && [ ! -e '$T/cfg3/agents' ] && printf '%s' "\$o" | grep -qF 'mission-command:mc-worker-opus'"
+check "mc-install-agents --force overrides the plugin check" bash -c "PATH='$T/fakebin:$PATH' FAKE_PLUGIN_LIST='$T/pl-yes.txt' HOME='$T/emptyhome' CLAUDE_CONFIG_DIR='$T/cfg3' bash '$S/mc-install-agents.sh' --force >/dev/null && [ -f '$T/cfg3/agents/mc-worker-sonnet.md' ]"
 
 echo "passed $PASS failed $FAIL"
 [ "$FAIL" -eq 0 ]

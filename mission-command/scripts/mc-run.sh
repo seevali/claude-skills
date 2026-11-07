@@ -28,14 +28,14 @@ unit="$(f unit)"; wt="$(mc_norm_path "$(f worktree)")"; cap="$(f cap)"; mode="$(
 # nothing outside the plugin; a plugin-qualified name (plugin:agent) is looked
 # up by its last segment. Otherwise it is read from the user-level copy at
 # <config dir>/agents/<name>.md, where mc-install-agents.sh puts it for a
-# skills-folder install: a headless run starts in the worktree and sees only
-# global and plugin definitions (references/landing.md, "Facts").
+# copy that does not load as a plugin: a headless run starts in the worktree
+# and sees only global and plugin definitions (references/landing.md, "Facts").
 name="${agent##*:}"
 shipped="$(mc_norm_path "$(dirname "$0")/../agents")/$name.md"
 global="$(mc_config_dir)/agents/$name.md"
 if [ -f "$shipped" ]; then
   def="$shipped"
-  [ -f "$global" ] || printf 'mc-run: note: no user-level copy at %s; fine under a plugin install (address the agent as mission-command:%s), a skills-folder install needs scripts/mc-install-agents.sh first\n' "$global" "$name" >&2
+  [ -f "$global" ] || printf 'mc-run: note: no user-level copy at %s; fine when the skill loads as a plugin (claude plugin list shows mission-command@…; address the agent as mission-command:%s), only a copy that does not needs scripts/mc-install-agents.sh first\n' "$global" "$name" >&2
 elif [ -f "$global" ]; then
   def="$global"
 else
