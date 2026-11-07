@@ -250,6 +250,20 @@ printf '# Return: W-1\n\n## Return\n### Decisions\n### Changes\n### Commands\n' 
 check "stop gate: headings are not content lines (finding 15)" blocked "$(stop "$TR")"
 printf '# Return: W-1\n\n## Return\nfixed the TODO in foo.ts\nwrote <return_file> into the prompt text\nall green\n' > "$RF"
 check "stop gate accepts prose mentioning TODO and <...>" empty "$(stop "$TR")"
+printf '# Return: W-1\n\n## Return\n\n## Return\nDid the thing because of the reason.\nChanged foo.ts; test passed 12/12.\nCommand: bash tests/run.sh, 30 cases.\n' > "$RF"
+check "stop gate: a repeated '## Return' heading reopens the section (1.3.1)" empty "$(stop "$TR")"
+printf '# Return: W-1\n\n## Return\nDid the thing because of the reason.\n\n## Notes\nignored here\n\n## Return\nChanged foo.ts; test passed 12/12.\nCommand: bash tests/run.sh, 30 cases.\n' > "$RF"
+check "stop gate: split '## Return' sections count jointly, other sections do not" empty "$(stop "$TR")"
+printf '# Return: W-1\n\n## Return\n<decisions with their why>\n\n## Return\nDid the thing because of the reason.\nChanged foo.ts; test passed 12/12.\nCommand: bash tests/run.sh, 30 cases.\n' > "$RF"
+check "stop gate: a placeholder left in an earlier '## Return' section still blocks" blocked "$(stop "$TR")"
+printf '# Return: W-1\n\n## Return\nDid the thing because of the reason.\n\n## Landing\nturns: 9\ncommit: abc\ngate: 0\n' > "$RF"
+check "stop gate: '## Landing' lines are not return content" blocked "$(stop "$TR")"
+filled "$RF"; echo dirt > "$WT/dirt.txt"
+check "stop gate reason, dirty only: commit, no fill (1.3.1)" [ "$(stop "$TR" | jq -r .reason)" = "[mc] Not landed: dirty worktree: 1 paths. Commit everything on disk, then stop." ]
+placeholder "$RF"
+check "stop gate reason, dirty and empty: both" [ "$(stop "$TR" | jq -r .reason)" = "[mc] Not landed: dirty worktree: 1 paths; '## Return' is empty or placeholder. Commit everything on disk and fill '## Return' in $RF, then stop." ]
+rm -f "$WT/dirt.txt"
+check "stop gate reason, empty only: fill, no commit" [ "$(stop "$TR" | jq -r .reason)" = "[mc] Not landed: '## Return' is empty or placeholder. Fill '## Return' in $RF, then stop." ]
 
 # --- landing: return-only -------------------------------------------------------
 WT="$(mk_wt)"; DISP="$(mk_disp "$WT" '{"landing":"return-only"}')"; RF="$(dirname "$DISP")/ret.md"; TR="$(mk_transcript 36)"
@@ -259,6 +273,7 @@ filled "$RF"; echo dirt > "$WT/dirt.txt"
 check "return-only: stop gate ignores dirty worktree" empty "$(stop "$TR")"
 placeholder "$RF"
 check "return-only: stop gate still checks the return" blocked "$(stop "$TR")"
+check "return-only: block reason never says commit (1.3.1)" [ "$(stop "$TR" | jq -r .reason)" = "[mc] Not landed: '## Return' is empty or placeholder. Fill '## Return' in $RF, then stop." ]
 
 # --- scope ----------------------------------------------------------------------
 WT="$(mk_wt)"; mkdir -p "$WT/unit" "$WT/other"; DISP="$(mk_disp "$WT" '{"scope":["unit"]}')"; RF="$(dirname "$DISP")/ret.md"; TR="$(mk_transcript 20)"
