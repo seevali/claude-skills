@@ -5,7 +5,10 @@
 #   mc-dispatch.sh --unit W-12 --agent mc-worker-opus --worktree DIR --return FILE
 #     [--tracker FILE] [--gate "CMD"] [--reserve 6] [--cap N]
 #     [--permission-mode MODE] [--landing commit|return-only] [--scope PATH]...
-#     --out FILE
+#     [--owns PATHSPEC]... --out FILE
+# --owns names what the unit may change (git pathspecs relative to the
+# worktree). The dispatch also records "base", the worktree's HEAD at dispatch,
+# and mc-land.sh reports every file changed since base that is outside owns.
 set -euo pipefail
 
 die() { printf 'mc-dispatch: %s\n' "$*" >&2; exit 2; }
@@ -14,7 +17,7 @@ die() { printf 'mc-dispatch: %s\n' "$*" >&2; exit 2; }
 command -v jq >/dev/null 2>&1 || die "jq is required and missing: install it (Windows: winget install jqlang.jq; Debian/Ubuntu: apt install jq; macOS: brew install jq)"
 
 unit="" agent="" worktree="" ret="" tracker="" gate="" reserve=6 cap="" mode="bypassPermissions" landing="commit" out=""
-scope=()
+scope=() owns=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --unit) unit="${2:?}"; shift 2 ;;
@@ -28,8 +31,9 @@ while [ $# -gt 0 ]; do
     --permission-mode) mode="${2:?}"; shift 2 ;;
     --landing) landing="${2:?}"; shift 2 ;;
     --scope) scope+=("${2:?}"); shift 2 ;;
+    --owns) owns+=("${2:?}"); shift 2 ;;
     --out) out="${2:?}"; shift 2 ;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
@@ -60,14 +64,21 @@ case "$out$ret" in *[[:space:]]*) die "--out and --return must not contain white
 mkdir -p "$(dirname "$out")"
 scope_json='null'
 [ ${#scope[@]} -gt 0 ] && scope_json="$(printf '%s\n' "${scope[@]}" | jq -R . | jq -sc .)"
-jq -n --arg unit "$unit" --arg worktree "$worktree" --arg return_file "$ret" \
+owns_json='null'
+[ ${#owns[@]} -gt 0 ] && owns_json="$(printf '%s\n' "${owns[@]}" | jq -R . | jq -sc .)"
+# The commit the unit starts from: what mc-land.sh diffs against for the owns
+# check. Empty when the worktree is not a git repository (yet).
+base="$(git -C "$worktree" rev-parse --verify -q HEAD 2>/dev/null || true)"
+jq -n --arg unit "$unit" --arg agent "$agent" --arg worktree "$worktree" --arg return_file "$ret" \
   --arg tracker "$tracker" --argjson cap "$cap" --argjson reserve "$reserve" \
   --arg gate "$gate" --arg permission_mode "$mode" --arg landing "$landing" \
-  --argjson scope "$scope_json" '
-  {unit: $unit, worktree: $worktree, return_file: $return_file}
+  --argjson scope "$scope_json" --argjson owns "$owns_json" --arg base "$base" '
+  {unit: $unit, agent: $agent, worktree: $worktree, return_file: $return_file}
   + (if $tracker != "" then {tracker: $tracker} else {} end)
   + {cap: $cap, reserve: $reserve, gate: $gate, permission_mode: $permission_mode, landing: $landing}
-  + (if $scope != null then {scope: $scope} else {} end)' > "$out"
+  + (if $scope != null then {scope: $scope} else {} end)
+  + (if $owns != null then {owns: $owns} else {} end)
+  + (if $base != "" then {base: $base} else {} end)' > "$out"
 
 if [ ! -e "$ret" ]; then
   mkdir -p "$(dirname "$ret")"

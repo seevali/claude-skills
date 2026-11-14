@@ -12,12 +12,12 @@ When active, the skill makes Claude:
 
 - **Internalize your vision first** — cheap parallel readers over your docs and code, synthesized and played back, before anything is executed
 - **Design to your budget** — the cheap fleet shape is the default, not something you have to ask for; resumable plans, disk-based trackers, a per-phase model/effort matrix, a pre-launch shape estimate (agents × turns × context), and a cost ledger: every fleet run's measured cost against the shared pool, with no launch that would spend more than a third of what remains
-- **Land the workers** — a worker's turn cap lives only in its agent definition; three hooks shipped with the skill give it a turn gauge on every tool result, a reserve in which only commit and the return file are allowed, and a stop gate that refuses an unlanded exit; when one caps anyway, `mc-land.sh` commits the leftovers and runs the gate, so the flagship never finishes a worker's last lines. Workers run stripped: no CLAUDE.md hierarchy, no skill or plugin listings, no MCP servers, a tool allowlist, model and effort pinned
+- **Land the workers** — a worker's turn cap lives only in its agent definition; three hooks shipped with the skill give it a turn gauge on every tool result, a reserve in which only commit and the return file are allowed, and a stop gate that refuses an unlanded exit; every return, capped or not, goes through `mc-land.sh`, which commits any leftovers, runs the gate itself, lists every file changed outside the paths the unit owns, and appends an outcome row (turns, how the worker ended, gate result) to `outcomes.tsv`, so the flagship never finishes a worker's last lines and never takes a worker's word for a green run. Workers run stripped: no CLAUDE.md hierarchy, no skill or plugin listings, no MCP servers, a tool allowlist, model and effort pinned
 - **Spend the fleet where it counts** — deterministic gates (build, tests) before any refuter; one refute round by default, scoped to the diff; shared read-only provisioning (worktrees, built artifacts, package caches) so agents never rebuild the world; rulings that state facts and deletions rather than prose
 - **Pin the fleet** — fast tier reads, mid tier implements and verifies, flagship designs and adjudicates; sub-agents never choose or inherit their tier, and zero flagship tokens go to grunt work
 - **Discipline the conductor** — no shell work in the main loop, medium effort for orchestration, small context (one mission per session, low auto-compaction window, no extended-context variant), non-blocking delegation, surgical edits, no scope extras
 - **Make the operation disk-portable** — protocol READMEs, trackers, and decision ledgers that let any fresh session (or an unattended headless fleet) resume from files alone
-- **Keep autonomy gated** — adversarial verification as a separate role, rehearsals before irreversible operations, draft PRs with you as the merge-gate, and a strict blocked-over-guessed rule for unattended workers
+- **Keep autonomy gated** — a written acceptance line before the first fleet, a closing report split into verified, unverified, blocked and next, adversarial verification as a separate role, rehearsals before irreversible operations, draft PRs with you as the merge-gate, and a strict blocked-over-guessed rule for unattended workers
 
 ## Installation
 
@@ -85,7 +85,8 @@ mission-command/
 ├── hooks/        # hooks.json: the three landing hooks at plugin level
 ├── scripts/      # The three hooks, mc-dispatch.sh, mc-land.sh, mc-run.sh
 └── references/
-    └── landing.md  # The landing contract
+    ├── landing.md  # The landing contract
+    └── brief.md    # The fill-in shape of a worker's brief
 ```
 
 The test harness lives outside the installed folder, at `tests/mission-command/run.sh` in the repository root, so an install carries no developer tooling.
@@ -95,7 +96,7 @@ The test harness lives outside the installed folder, at `tests/mission-command/r
 Written for anyone reviewing the plugin before installing it, including the plugin directory's policy review.
 
 - **Reads.** The three hooks read the JSON the harness hands them on stdin and the worker's own transcript file, at the `transcript_path` in that JSON, for two things only: the number of distinct assistant message ids (the turn count) and the `MC_DISPATCH=<path>` token in the first user line. Under a plugin install they run in every session where the plugin is enabled; in a session that is not a worker they read that first line once, cache the negative answer, and do nothing further. Nothing from the transcript is kept beyond a per-session cache of that path under `/tmp/mc-hooks`. `mc-run.sh` and `mc-dispatch.sh` read agent frontmatter (`model`, `effort`, `maxTurns`) from the definitions shipped in `agents/`, falling back to the `agents/` folder of Claude Code's config directory (`$CLAUDE_CONFIG_DIR`, else `~/.claude`) for a copy installed with `mc-install-agents.sh`. No other file under that directory is read: no credentials file, no settings, no token, no environment secret, no keychain.
-- **Writes.** The dispatch, gauge and return files the conductor names; `wip:` and `land:` commits in the worker's worktree; and, only when you run `mc-install-agents.sh` yourself, two agent definitions into the config directory's `agents/` folder.
+- **Writes.** The dispatch, gauge and return files the conductor names, and `outcomes.tsv` beside the dispatch files; `wip:` and `land:` commits in the worker's worktree; and, only when you run `mc-install-agents.sh` yourself, two agent definitions into the config directory's `agents/` folder.
 - **Sends.** Nothing. The scripts make no network calls. The one outward process is `claude -p` in `mc-run.sh`: the user's own Claude Code CLI under the user's own login, given the brief and the stripped flags and nothing else from the machine. No script ever runs `git push`.
 
 ## Background

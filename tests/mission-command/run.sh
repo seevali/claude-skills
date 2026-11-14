@@ -7,6 +7,7 @@ S="$HERE/../../mission-command/scripts"
 T="$(mktemp -d "${TMPDIR:-/tmp}/mc-test.XXXXXX")"
 trap 'rm -rf "$T"' EXIT
 export MC_HOOK_TMP="$T/hooktmp"
+ROOT_PLUGIN="$HERE/../../mission-command/.claude-plugin/plugin.json"
 unset MC_HOOKS_OFF CLAUDE_CONFIG_DIR
 PASS=0 FAIL=0
 
@@ -329,13 +330,35 @@ check "mc-land prints one summary line" bash -c "[ \$(printf '%s\n' '$o' | wc -l
 H1="$(git -C "$WT" rev-parse HEAD)"; rm -f "$(dirname "$DISP")/W-1.gate.log"
 o="$(bash "$S/mc-land.sh" "$DISP")"
 check "mc-land second run: no commit, no gate, one ## Landing (finding 18)" bash -c "[ \"\$(git -C '$WT' rev-parse HEAD)\" = '$H1' ] && [ ! -e '$(dirname "$DISP")/W-1.gate.log' ] && [ \$(grep -c '^## Landing' '$RF') -eq 1 ]"
-check "mc-land second run prints the existing summary (finding 18)" has "$o" "[mc-land] W-1: turns=41/40 leftovers=$(git -C "$WT" rev-parse --short HEAD) gate=0 log=$(dirname "$DISP")/W-1.gate.log (already landed"
+check "mc-land second run prints the existing summary (finding 18)" has "$o" "[mc-land] W-1: turns=41/40 leftovers=$(git -C "$WT" rev-parse --short HEAD) gate=0 log=$(dirname "$DISP")/W-1.gate.log outside=unchecked (already landed"
+check "mc-land without owns: Landing says not checked, the row says cap (1.5.0)" bash -c "grep -qx -- '- outside owns: not checked (no owns or no base in the dispatch)' '$RF' && [ \$(wc -l < '$(dirname "$DISP")/outcomes.tsv') -eq 2 ] && awk -F'\t' 'NR==2 && \$2==\"W-1\" && \$3==\"?\" && \$5==41 && \$6==40 && \$7==\"cap\" && \$8==0 && \$9==\"unchecked\"' '$(dirname "$DISP")/outcomes.tsv' | grep -q ."
 WT="$(mk_wt)"; DISP="$(mk_disp "$WT")"; jq --arg rf "$WT/ret.md" '.return_file = $rf' "$DISP" > "$DISP.x" && mv "$DISP.x" "$DISP"; filled "$WT/ret.md"; echo left > "$WT/left.txt"
 bash "$S/mc-land.sh" "$DISP" >/dev/null 2>&1
 check "mc-land commits its record inside the worktree (finding 19)" bash -c "[ -z \"\$(git -C '$WT' status --porcelain)\" ] && git -C '$WT' log -1 --format=%s | grep -qx 'land(W-1): landing record' && git -C '$WT' log -1 --skip=1 --format=%s | grep -q '^wip(W-1)' && grep -q '^## Landing' '$WT/ret.md'"
 WT="$(mk_wt)"; mkdir -p "$WT/unit"; DISP="$(mk_disp "$WT" '{"scope":["unit"]}')"; filled "$(dirname "$DISP")/ret.md"; echo o > "$WT/other.txt"; H1="$(git -C "$WT" rev-parse HEAD)"
 bash "$S/mc-land.sh" "$DISP" >/dev/null 2>&1
 check "mc-land limits leftovers to scope, usage says so (finding 17)" bash -c "[ \"\$(git -C '$WT' rev-parse HEAD)\" = '$H1' ] && git -C '$WT' status --porcelain | grep -q other.txt && bash '$S/mc-land.sh' 2>&1 | grep -q scope"
+# owns check and outcome rows (1.5.0): a worker that owns src/ and also loosens a test
+mk_owned() { # mk_owned → worktree with src/ and tests/ committed; prints its path
+  local d; d="$(mk_wt)"; mkdir -p "$d/src" "$d/tests"; echo s > "$d/src/a.ts"; echo 'expect(1)' > "$d/tests/a.test"
+  git -C "$d" add -A && git -C "$d" commit -q -m layout >/dev/null 2>&1; printf '%s' "$d"
+}
+owned_disp() { mk_disp "$1" "$(jq -nc --arg b "$(git -C "$1" rev-parse HEAD)" '{owns:["src"],base:$b,agent:"mc-worker-opus",gate:"true"}')"; }
+WT="$(mk_owned)"; DISP="$(owned_disp "$WT")"; RF="$(dirname "$DISP")/ret.md"; ROWS="$(dirname "$DISP")/outcomes.tsv"; filled "$RF"
+echo 'turns=22 cap=40 reserve_at=35 updated=x' > "$DISP.gauge"
+echo code > "$WT/src/a.ts"; echo skip > "$WT/tests/a.test"; echo n > "$WT/src/new file.ts"; git -C "$WT" add -A; git -C "$WT" commit -q -m 'wip: unit'
+o="$(bash "$S/mc-land.sh" "$DISP")"
+check "mc-land lists a file changed outside owns" bash -c "grep -qx -- '- outside owns: 1 (tests/a.test)' '$RF' && printf '%s' '$o' | grep -q ' outside=1\$'"
+check "mc-land writes a header and one outcome row from the artifacts" bash -c "[ \$(wc -l < '$ROWS') -eq 2 ] && head -1 '$ROWS' | grep -q \"^date\$(printf '\t')unit\$(printf '\t')agent\$(printf '\t')version\" && awk -F'\t' -v v=\"\$(jq -r .version '$ROOT_PLUGIN')\" 'NR==2 && \$2==\"W-1\" && \$3==\"mc-worker-opus\" && \$4==v && \$5==22 && \$6==40 && \$7==\"landed\" && \$8==0 && \$9==1 && \$10==\"clean\"' '$ROWS' | grep -q ."
+o="$(bash "$S/mc-land.sh" "$DISP")"
+check "mc-land second run: no second row, summary keeps outside=1" bash -c "[ \$(wc -l < '$ROWS') -eq 2 ] && printf '%s' '$o' | grep -q 'outside=1 (already landed'"
+WT="$(mk_owned)"; DISP="$(owned_disp "$WT")"; jq --arg rf "$WT/returns/ret.md" --arg tr "$WT/TRACKER.md" '.return_file = $rf | .tracker = $tr' "$DISP" > "$DISP.x" && mv "$DISP.x" "$DISP"
+mkdir -p "$WT/returns"; filled "$WT/returns/ret.md"; echo row > "$WT/TRACKER.md"; echo code > "$WT/src/a.ts"; git -C "$WT" add -A; git -C "$WT" commit -q -m 'wip: unit'
+o="$(bash "$S/mc-land.sh" "$DISP")"
+check "mc-land: inside owns only, the return file and tracker in the worktree never count" bash -c "grep -qx -- '- outside owns: none' '$WT/returns/ret.md' && printf '%s' '$o' | grep -q ' outside=0\$'"
+WT="$(mk_owned)"; DISP="$(owned_disp "$WT")"; filled "$(dirname "$DISP")/ret.md"; echo 'turns=30 cap=40 reserve_at=35 updated=x' > "$DISP.gauge"; echo dirt > "$WT/src/a.ts"
+bash "$S/mc-land.sh" "$DISP" >/dev/null 2>&1
+check "mc-land: work left for the script to commit makes the row unlanded" bash -c "awk -F'\t' 'NR==2 && \$7==\"unlanded\" && \$9==0' '$(dirname "$DISP")/outcomes.tsv' | grep -q ."
 
 # --- mc-dispatch.sh -------------------------------------------------------------
 P="$T/proj"; mkdir -p "$P/.claude/agents" "$T/home/.claude/agents"
@@ -350,6 +373,9 @@ check "mc-dispatch fields" jq -e '.unit == "W-9" and .reserve == 6 and .gate == 
 (cd "$P" && HOME="$T/home" bash "$S/mc-dispatch.sh" --unit W-8 --agent homeonly --worktree "$WT" --return "$T/r9/W-8.md" --out "$T/r9/W-8.dispatch.json" --landing return-only --scope a --scope b) >/dev/null
 check "mc-dispatch falls back to ~/.claude/agents, landing and scope" jq -e '.cap == 25 and .landing == "return-only" and .scope == ["a","b"]' "$T/r9/W-8.dispatch.json"
 (cd "$P" && HOME="$T/home" bash "$S/mc-dispatch.sh" --unit W-7 --agent fake --cap 12 --worktree "$WT" --return "$T/r9/W-7.md" --out "$T/r9/W-7.dispatch.json") >/dev/null
+(cd "$P" && HOME="$T/home" bash "$S/mc-dispatch.sh" --unit W-4 --agent fake --worktree "$WT" --return "$T/r9/W-4.md" --out "$T/r9/W-4.dispatch.json" --owns src --owns 'tests/unit/*.ts') >/dev/null
+check "mc-dispatch records owns, the agent and the worktree's HEAD as base (1.5.0)" jq -e --arg b "$(git -C "$WT" rev-parse HEAD)" '.owns == ["src","tests/unit/*.ts"] and .agent == "fake" and .base == $b' "$T/r9/W-4.dispatch.json"
+check "mc-dispatch without --owns writes no owns key" jq -e 'has("owns") | not' "$T/r9/W-9.dispatch.json"
 check "mc-dispatch --cap overrides" [ "$(jq -r .cap "$T/r9/W-7.dispatch.json")" = 12 ]
 check "mc-dispatch fails without a cap" bash -c "cd '$P' && HOME='$T/home' bash '$S/mc-dispatch.sh' --unit X --agent nosuch --worktree '$WT' --return '$T/x.md' --out '$T/x.json'; [ \$? -eq 2 ]"
 check "mc-dispatch keeps an existing return file" bash -c "filled() { :; }; echo keep > '$T/r9/W-6.md'; cd '$P' && HOME='$T/home' bash '$S/mc-dispatch.sh' --unit W-6 --agent fake --worktree '$WT' --return '$T/r9/W-6.md' --out '$T/r9/W-6.json' >/dev/null && [ \"\$(cat '$T/r9/W-6.md')\" = keep ]"
